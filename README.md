@@ -56,6 +56,6 @@ make
 |------------|---------------------------------|
 | Deborah Basson | [deborah.basson@epita.fr](mailto:deborah@epita.fr) |
 | Louise Grosdhomme | [louise.grosdhomme@epita.fr](mailto:louise@epita.fr) |
-| Alida Nana-Sunji-Kouanang | [alida@epita.fr](mailto:alida@epita.fr) |
+| Alida Nana-Sunji-Kouanang | [alida.nana-sunji-kouanang@epita.fr](mailto:alida@epita.fr) |
 | Maimouna Tall | [maimouna.tall@epita.fr](mailto:maimouna@epita.fr) |
 
