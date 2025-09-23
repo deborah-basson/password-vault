@@ -33,13 +33,13 @@ git clone https://github.com/deborah-basson/password-vault.git
 
 2. Compile the project :
 ```bash
-cd password-vault
+cd password-manager
 make
 ```
 
 3. Run the application
 ```bash
-./password-vault
+./password-manager
 ```
 
 ---
