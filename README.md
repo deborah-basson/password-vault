@@ -10,7 +10,7 @@
 ---
 
 ## Overview
-**Password Vault** is a project developed as part of the **Secure Development** course at EPITA.  
+This **password vault** is a project developed as part of the **Secure Development** course at EPITA.  
 The project is written in **C** and allows users to securely store and manage passwords.
 
 ---
