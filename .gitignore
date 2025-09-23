@@ -1,0 +1,14 @@
+*.o
+*.obj
+*.out
+*.exe
+*.elf
+*.a
+*.so
+*.dll
+*.lib
+*.log
+*.tmp
+.vscode/
+.idea/
+password_manager
