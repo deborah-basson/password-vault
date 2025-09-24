@@ -6,8 +6,6 @@
 #include "../include/password_manager.h"
 
 #ifdef _WIN32
-#include <windows.h>
-#include <conio.h>
 #else
 #include <unistd.h>
 #include <termios.h>
@@ -126,12 +124,12 @@ void start_ui(PasswordManager *manager) {
         printf("=== CHARGEMENT RÉUSSI ===\n");
     } else {
         printf("=== PREMIÈRE UTILISATION ===\n");
-        printf("Créez un mot de passe maître: ");
+        printf("Créez un mot de passe : ");
 
         fgets(manager->master_key, MASTER_KEY_MAX_LENGTH , stdin);
         manager->master_key[strcspn(manager->master_key, "\n")] = 0;
         
-        printf("✓ Mot de passe maître créé avec succès!\n\n");
+        printf("✓ Mot de passe créé avec succès!\n\n");
         save_to_file(manager); // Sauvegarder le nouveau coffre
     }
     
@@ -141,7 +139,7 @@ void start_ui(PasswordManager *manager) {
     int authenticated = 0;
     
     while (attempts < 3 && !authenticated) {
-        printf("Mot de passe maître: ");
+        printf("Mot de passe : ");
         
         if (!read_line(input_password, sizeof(input_password))) {
             printf("Erreur de lecture.\n");
