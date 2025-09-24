@@ -1,0 +1,17 @@
+*.o
+src/*.o
+*.out
+src/*.out
+*.exe
+*.elf
+*.a
+src/*.a
+*.so
+src/*.so
+*.dll
+*.lib
+*.log
+*.tmp
+.vscode/
+.idea/
+password_manager

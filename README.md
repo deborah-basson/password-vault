@@ -10,7 +10,7 @@
 ---
 
 ## Overview
-**Password Vault** is a project developed as part of the **Secure Development** course at EPITA.  
+This **password vault** is a project developed as part of the **Secure Development** course at EPITA.  
 The project is written in **C** and allows users to securely store and manage passwords.
 
 ---
@@ -33,13 +33,13 @@ git clone https://github.com/deborah-basson/password-vault.git
 
 2. Compile the project :
 ```bash
-cd password-vault
+cd password-manager
 make
 ```
 
 3. Run the application
 ```bash
-./password-vault
+./password-manager
 ```
 
 ---
