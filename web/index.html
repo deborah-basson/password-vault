@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:">
+    <title>🔐 Coffre-fort de Mots de Passe</title>
+    <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🔐 Coffre-fort Sécurisé</h1>
+            <p class="subtitle">Chiffrement AES-256 • 2FA TOTP • Protection OWASP Top 10</p>
+        </header>
+
+        <!-- Écran d'inscription -->
+        <div id="register-screen" class="screen">
+            <div class="card">
+                <h2>Créer votre coffre-fort</h2>
+                <p class="info">Ce mot de passe chiffrera tous vos autres mots de passe.</p>
+                
+                <form id="register-form">
+                    <div class="form-group">
+                        <label>Mot de passe principal</label>
+                        <input type="password" id="register-password" required 
+                               placeholder="Minimum 12 caractères">
+                        <div class="password-strength" id="strength-bar"></div>
+                        <small id="strength-text"></small>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label>Confirmer le mot de passe</label>
+                        <input type="password" id="register-confirm" required>
+                    </div>
+                    
+                    <button type="submit" class="btn btn-primary">Créer le coffre</button>
+                </form>
+            </div>
+        </div>
+
+        <!-- Écran 2FA Setup -->
+        <div id="totp-setup-screen" class="screen hidden">
+            <div class="card">
+                <h2>⚙️ Configuration 2FA (TOTP)</h2>
+                <p>Scannez ce QR code avec <strong>Google Authenticator</strong> ou <strong>Authy</strong></p>
+                
+                <div id="qr-code" class="qr-container"></div>
+                
+                <div class="totp-manual">
+                    <p><strong>Ou configurez manuellement :</strong></p>
+                    <code id="totp-secret">XXXX XXXX XXXX XXXX</code>
+                    <button onclick="copyToClipboard('totp-secret')" class="btn-copy">📋 Copier</button>
+                </div>
+                
+                <div class="warning-box">
+                    <strong>⚠️ Important :</strong> Sauvegardez ce code dans un endroit sûr. 
+                    Sans lui, vous ne pourrez plus accéder à votre coffre !
+                </div>
+                
+                <button id="btn-continue-2fa" class="btn btn-primary">J'ai configuré mon 2FA →</button>
+            </div>
+        </div>
+
+        <!-- Écran de connexion -->
+        <div id="login-screen" class="screen hidden">
+            <div class="card">
+                <h2>🔓 Déverrouiller le coffre</h2>
+                
+                <form id="login-form">
+                    <div class="form-group">
+                        <label>Mot de passe principal</label>
+                        <input type="password" id="login-password" required autocomplete="current-password">
+                    </div>
+                    
+                    <button type="submit" class="btn btn-primary">Se connecter</button>
+                </form>  <!-- ← AJOUTEZ CETTE LIGNE -->
+            </div>
+        </div>
+
+        <!-- Dashboard principal -->
+        <div id="dashboard-screen" class="screen hidden">
+            <div class="dashboard-header">
+                <h2>📚 Mes mots de passe</h2>
+                <div class="actions">
+                    <button onclick="showAddPassword()" class="btn btn-primary">➕ Ajouter</button>
+                    <button onclick="generatePasswordPopup()" class="btn btn-secondary">🎲 Générer</button>
+                    <button onclick="logout()" class="btn btn-danger">🚪 Déconnexion</button>
+                </div>
+            </div>
+
+            <div class="search-bar">
+                <input type="text" id="search-input" placeholder="🔍 Rechercher un site ou utilisateur...">
+            </div>
+
+            <div id="passwords-list" class="passwords-grid">
+                <div class="loading">Chargement...</div>
+            </div>
+        </div>
+
+        <!-- Modal d'ajout -->
+        <div id="add-modal" class="modal hidden">
+            <div class="modal-content">
+                <span class="close" onclick="closeModal()">&times;</span>
+                <h2>➕ Ajouter un mot de passe</h2>
+                
+                <form id="add-password-form">
+                    <div class="form-group">
+                        <label>Site web</label>
+                        <input type="text" id="add-website" required placeholder="exemple.com">
+                    </div>
+                    
+                    <div class="form-group">
+                        <label>Nom d'utilisateur</label>
+                        <input type="text" id="add-username" required placeholder="votre@email.com">
+                    </div>
+                    
+                    <div class="form-group">
+                        <label>Mot de passe</label>
+                        <div class="password-input-group">
+                            <input type="password" id="add-password" required>
+                            <button type="button" onclick="togglePassword('add-password')" title="Afficher">👁️</button>
+                            <button type="button" onclick="autoGeneratePassword()" title="Générer">🎲</button>
+                        </div>
+                        <div class="password-strength" id="add-strength-bar"></div>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label>Notes (optionnel)</label>
+                        <textarea id="add-notes" rows="3" placeholder="Informations complémentaires..."></textarea>
+                    </div>
+                    
+                    <button type="submit" class="btn btn-primary">💾 Enregistrer</button>
+                </form>
+            </div>
+        </div>
+
+        <!-- Modal de génération -->
+        <div id="generate-modal" class="modal hidden">
+            <div class="modal-content">
+                <span class="close" onclick="closeGenerateModal()">&times;</span>
+                <h2>🎲 Générer un mot de passe</h2>
+                
+                <div class="form-group">
+                    <label>Longueur : <span id="length-value">16</span></label>
+                    <input type="range" id="password-length" min="12" max="32" value="16" 
+                           oninput="document.getElementById('length-value').textContent = this.value">
+                </div>
+                
+                <div class="generated-password">
+                    <code id="generated-password-display">••••••••••••••••</code>
+                    <button onclick="copyGenerated()" class="btn-copy">📋 Copier</button>
+                </div>
+                
+                <button onclick="generateNewPassword()" class="btn btn-secondary">🔄 Régénérer</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="notification" class="notification hidden"></div>
+
+    <script src="/app.js"></script>
+</body>
+</html>

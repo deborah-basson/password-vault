@@ -9,6 +9,26 @@
 
 ---
 
+## Update
+- Double authentification pas encore faite
+- Quand tu arrive sur l'appli les boutton ne fonctionne pas encore bien 1 fois sur 2 
+- BDD en clair encore - Implémenter AES-256-GCM avec clé dérivée du master password
+
+- HTTPS obligatoire
+Générer de vrais certificats avec Let's Encrypt
+Configurer nginx/Caddy en reverse proxy
+Rediriger HTTP → HTTPS
+
+- CSRF Protection
+Générer des tokens CSRF
+Valider les tokens sur toutes les routes POST/PUT/DELETE
+
+-Headers de sécurité supplémentaires
+Ajouter X-Content-Type-Options: nosniff
+Ajouter X-Frame-Options: DENY
+Renforcer Content-Security-Policy
+
+
 ## Overview
 This **password vault** is a project developed as part of the **Secure Development** course at EPITA.  
 The project is written in **C** and allows users to securely store and manage passwords.
@@ -31,16 +51,10 @@ The project is written in **C** and allows users to securely store and manage pa
 git clone https://github.com/deborah-basson/password-vault.git
 ```
 
-2. Compile the project :
+2. Compile and run the project :
 ```bash
 cd password-manager
-make
-```
-
-3. Run the application
-```bash
-./password-manager
-```
+make run
 
 ---
 
