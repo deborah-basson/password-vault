@@ -56,6 +56,7 @@ git clone https://github.com/deborah-basson/password-vault.git
 cd password-manager
 make run
 
+```
 ---
 
 ## Usage
