@@ -23,7 +23,7 @@ Rediriger HTTP → HTTPS
 Générer des tokens CSRF
 Valider les tokens sur toutes les routes POST/PUT/DELETE
 
--Headers de sécurité supplémentaires
+- Headers de sécurité supplémentaires
 Ajouter X-Content-Type-Options: nosniff
 Ajouter X-Frame-Options: DENY
 Renforcer Content-Security-Policy
