@@ -139,12 +139,13 @@ int encrypt_data(const char *plaintext, const char *key, char *ciphertext, size_
                        (unsigned char*)key, strlen(key),
                        NULL, 0);
     
+    unsigned char binary_cipher[512];
     unsigned long long ciphertext_len;
     
-    memcpy(ciphertext, nonce, sizeof(nonce));
+    memcpy(binary_cipher, nonce, sizeof(nonce));
     
     if (crypto_aead_aes256gcm_encrypt(
-        (unsigned char*)ciphertext + sizeof(nonce),
+        binary_cipher + sizeof(nonce),
         &ciphertext_len,
         (unsigned char*)plaintext,
         plaintext_len,
@@ -156,19 +157,36 @@ int encrypt_data(const char *plaintext, const char *key, char *ciphertext, size_
         return 0;
     }
     
-    *cipher_len = sizeof(nonce) + ciphertext_len;
+    size_t total_binary_len = sizeof(nonce) + ciphertext_len;
+    
+    size_t b64_maxlen = sodium_base64_ENCODED_LEN(total_binary_len, sodium_base64_VARIANT_ORIGINAL);
+    if (b64_maxlen > *cipher_len) {
+        return 0;
+    }
+    
+    sodium_bin2base64(ciphertext, *cipher_len, binary_cipher, total_binary_len, sodium_base64_VARIANT_ORIGINAL);
+    
+    *cipher_len = strlen(ciphertext);
     return 1;
 }
 
 int decrypt_data(const char *ciphertext, size_t cipher_len, const char *key, char *plaintext) {
     if (!ciphertext || !key || !plaintext) return 0;
     
-    if (cipher_len < crypto_aead_aes256gcm_NPUBBYTES + crypto_aead_aes256gcm_ABYTES) {
+    unsigned char binary_cipher[512];
+    size_t binary_len;
+    
+    if (sodium_base642bin(binary_cipher, sizeof(binary_cipher), ciphertext, cipher_len,
+                         NULL, &binary_len, NULL, sodium_base64_VARIANT_ORIGINAL) != 0) {
+        return 0;
+    }
+    
+    if (binary_len < crypto_aead_aes256gcm_NPUBBYTES + crypto_aead_aes256gcm_ABYTES) {
         return 0;
     }
     
     unsigned char nonce[crypto_aead_aes256gcm_NPUBBYTES];
-    memcpy(nonce, ciphertext, sizeof(nonce));
+    memcpy(nonce, binary_cipher, sizeof(nonce));
     
     unsigned char derived_key[crypto_aead_aes256gcm_KEYBYTES];
     crypto_generichash(derived_key, sizeof(derived_key),
@@ -181,8 +199,8 @@ int decrypt_data(const char *ciphertext, size_t cipher_len, const char *key, cha
         (unsigned char*)plaintext,
         &plaintext_len,
         NULL,
-        (unsigned char*)ciphertext + sizeof(nonce),
-        cipher_len - sizeof(nonce),
+        binary_cipher + sizeof(nonce),
+        binary_len - sizeof(nonce),
         NULL, 0,
         nonce,
         derived_key

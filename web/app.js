@@ -19,6 +19,7 @@ function showDashboard() {
 function logout() {
     currentSession = null;
     localStorage.removeItem('session_token');
+    localStorage.removeItem('csrf_token');
     showScreen('login-screen');
     notify('Déconnecté avec succès', 'success');
 }
@@ -138,10 +139,12 @@ document.getElementById('login-form').addEventListener('submit', async (e) => {
         if (response.ok) {
             currentSession = {
                 token: data.session_token,
+                csrf_token: data.csrf_token,
                 expires_in: data.expires_in
             };
             localStorage.setItem('session_token', data.session_token);
-            notify('Connexion réussie !', 'success');
+            localStorage.setItem('csrf_token', data.csrf_token);
+            notify('Connexion réussie ! 🔒', 'success');
             showDashboard();
         } else {
             notify(data.error || 'Mot de passe incorrect', 'error');
@@ -227,6 +230,7 @@ document.getElementById('add-password-form').addEventListener('submit', async (e
     const password = document.getElementById('add-password').value;
     const notes = document.getElementById('add-notes').value;
     const token = localStorage.getItem('session_token');
+    const csrfToken = localStorage.getItem('csrf_token');
     
     const strength = checkPasswordStrength(password);
     if (!strength.valid) {
@@ -239,7 +243,8 @@ document.getElementById('add-password-form').addEventListener('submit', async (e
             method: 'POST',
             headers: { 
                 'Content-Type': 'application/json',
-                'Authorization': `Bearer ${token}`
+                'Authorization': `Bearer ${token}`,
+                'X-CSRF-Token': csrfToken
             },
             body: JSON.stringify({ website, username, password, notes })
         });
@@ -250,10 +255,16 @@ document.getElementById('add-password-form').addEventListener('submit', async (e
             return;
         }
         
+        if (response.status === 403) {
+            notify('Erreur CSRF - Reconnectez-vous', 'error');
+            logout();
+            return;
+        }
+        
         const data = await response.json();
         
         if (response.ok) {
-            notify('Mot de passe ajouté !', 'success');
+            notify('Mot de passe ajouté et chiffré ! 🔒', 'success');
             closeModal();
             loadPasswords();
         } else {
@@ -269,12 +280,22 @@ async function deletePassword(id) {
     if (!confirm('Supprimer ce mot de passe ?')) return;
     
     const token = localStorage.getItem('session_token');
+    const csrfToken = localStorage.getItem('csrf_token');
     
     try {
         const response = await fetch(`${API_URL}/passwords/${id}`, {
             method: 'DELETE',
-            headers: { 'Authorization': `Bearer ${token}` }
+            headers: { 
+                'Authorization': `Bearer ${token}`,
+                'X-CSRF-Token': csrfToken
+            }
         });
+        
+        if (response.status === 403) {
+            notify('Erreur CSRF - Reconnectez-vous', 'error');
+            logout();
+            return;
+        }
         
         if (response.ok) {
             notify('Supprimé', 'success');

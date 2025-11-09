@@ -6,14 +6,19 @@ CC = gcc
 CFLAGS = -Wall -Wextra -std=c11 -pthread -O2 -Wno-unused-result
 LDFLAGS = -lsqlite3 -lsodium -lssl -lcrypto -lpthread
 
-# Répertoires
 SRC_DIR = src
 INCLUDE_DIR = include
 BUILD_DIR = build
 SQL_DIR = sql
 WEB_DIR = web
+TEST_DIR = tests
+TEST_BUILD_DIR = build/tests
+TEST_EXEC = run_tests
+TEST_SOURCES = $(wildcard $(TEST_DIR)/*.c)
+TEST_OBJECTS = $(TEST_SOURCES:$(TEST_DIR)/%.c=$(TEST_BUILD_DIR)/%.o)
+TEST_LDFLAGS = -lcriterion $(LDFLAGS)
+CRITERION_OPTS = --jobs=1
 
-# Fichiers sources
 SOURCES = $(SRC_DIR)/api_server.c \
           $(SRC_DIR)/database.c \
           $(SRC_DIR)/crypto.c \
@@ -22,7 +27,9 @@ SOURCES = $(SRC_DIR)/api_server.c \
 OBJECTS = $(SOURCES:$(SRC_DIR)/%.c=$(BUILD_DIR)/%.o)
 EXECUTABLE = password_vault
 
-# Couleurs
+MAIN_SOURCES = $(SRC_DIR)/api_server.c
+TEST_OBJECTS_DEPS = $(filter-out $(MAIN_SOURCES:$(SRC_DIR)/%.c=$(BUILD_DIR)/%.o),$(OBJECTS))
+
 RED = \033[0;31m
 GREEN = \033[0;32m
 BLUE = \033[0;34m
@@ -39,8 +46,9 @@ setup:
 	@mkdir -p $(BUILD_DIR)
 	@mkdir -p $(WEB_DIR)
 	@mkdir -p $(SQL_DIR)
+	@mkdir -p $(TEST_BUILD_DIR)
 
-$(BUILD_DIR)/%.o: $(SRC_DIR)/%.c
+$(BUILD_DIR)/%.o: $(SRC_DIR)/%.c | setup
 	@echo "$(BLUE)→ Compilation de $<...$(NC)"
 	@$(CC) $(CFLAGS) -I$(INCLUDE_DIR) -c $< -o $@
 
@@ -61,7 +69,7 @@ kill:
 clean:
 	@$(MAKE) kill
 	@echo "$(BLUE)🧹 Nettoyage des fichiers compilés...$(NC)"
-	@rm -rf $(BUILD_DIR) $(EXECUTABLE)
+	@rm -rf $(BUILD_DIR) $(EXECUTABLE) $(TEST_EXEC)
 	@echo "$(GREEN)✓ Nettoyage terminé (BD préservée)$(NC)"
 
 reset:
@@ -69,7 +77,7 @@ reset:
 	@echo "$(RED)╔════════════════════════════════════════╗$(NC)"
 	@echo "$(RED)║  ⚠️  RÉINITIALISATION COMPLÈTE  ⚠️   ║$(NC)"
 	@echo "$(RED)╚════════════════════════════════════════╝$(NC)"
-	@rm -rf $(BUILD_DIR) $(EXECUTABLE)
+	@rm -rf $(BUILD_DIR) $(EXECUTABLE) $(TEST_EXEC)
 	@rm -f *.db *.db-shm *.db-wal
 	@rm -f /tmp/vault.db /tmp/vault.db-shm /tmp/vault.db-wal
 	@rm -f cert.pem key.pem
@@ -104,6 +112,10 @@ install:
 		echo "$(YELLOW)→ Installation de OpenSSL...$(NC)"; \
 		sudo apt-get install -y libssl-dev; \
 	}
+	@pkg-config --exists criterion || { \
+		echo "$(YELLOW)→ Installation de Criterion...$(NC)"; \
+		sudo apt-get install -y libcriterion-dev; \
+	}
 	@echo "$(GREEN)✓ Dépendances installées$(NC)"
 
 ssl:
@@ -119,12 +131,23 @@ ssl-check:
 		$(MAKE) ssl; \
 	fi
 
-test:
-	@echo "$(BLUE)→ Tests de sécurité...$(NC)"
-	@echo "  ✓ SQL Injection"
-	@echo "  ✓ XSS"
-	@echo "  ✓ Rate limiting"
-	@echo "$(GREEN)✓ Tests OK$(NC)"
+$(TEST_BUILD_DIR)/%.o: $(TEST_DIR)/%.c | setup
+	@$(CC) $(CFLAGS) -I$(INCLUDE_DIR) -DTEST_BUILD -c $< -o $@
+
+$(TEST_EXEC): $(TEST_OBJECTS_DEPS) $(TEST_OBJECTS) | setup
+	@echo "$(BLUE)→ Compilation des tests...$(NC)"
+	@$(CC) $(TEST_OBJECTS_DEPS) $(TEST_OBJECTS) $(TEST_LDFLAGS) -DTEST_BUILD -o $@
+CRITERION_OPTS = --jobs=1
+
+test: setup $(TEST_EXEC)
+	@echo "$(BLUE)→ Nettoyage de la base de données de test...$(NC)"
+	@rm -f vault.db vault.db-shm vault.db-wal
+	@echo "$(BLUE)→ Arrêt des processus serveur existants...$(NC)"
+	@pkill -x $(EXECUTABLE) 2>/dev/null || true
+	@sleep 0.5
+	@echo "$(BLUE)→ Exécution de la suite de tests...$(NC)"
+	@./$(TEST_EXEC) --jobs=1 --verbose || true
+	@echo "$(GREEN)✓ Tests terminés$(NC)"
 
 status:
 	@echo "$(BLUE)╔════════════════════════════════════════╗$(NC)"
@@ -153,6 +176,7 @@ help:
 	@echo "$(BLUE)╠════════════════════════════════════════════════╣$(NC)"
 	@echo "$(BLUE)║$(NC) make run       - Lancer le serveur (HTTPS)     $(BLUE)║$(NC)"
 	@echo "$(BLUE)║$(NC) make run-dev   - Lancer en mode dev (HTTP)     $(BLUE)║$(NC)"
+	@echo "$(BLUE)║$(NC) make test      - Exécuter les tests            $(BLUE)║$(NC)"
 	@echo "$(BLUE)║$(NC) make clean     - Nettoyer (garde la BD)        $(BLUE)║$(NC)"
 	@echo "$(BLUE)║$(NC) make reset     - TOUT réinitialiser 💥         $(BLUE)║$(NC)"
 	@echo "$(BLUE)║$(NC) make kill      - Tuer les processus            $(BLUE)║$(NC)"

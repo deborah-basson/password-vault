@@ -1,3 +1,103 @@
+// Server's main() not compiled for Makefile 'test' rule
+#ifndef TEST_BUILD
+int main(int argc, char *argv[]) {
+    int server_fd, client_socket;
+    struct sockaddr_in address;
+    int addrlen = sizeof(address);
+    SSL_CTX *ssl_ctx = NULL;
+    int use_ssl = 1;
+    
+    if (argc > 1 && strcmp(argv[1], "--no-ssl") == 0) {
+        use_ssl = 0;
+        printf("Mode HTTP (developpement uniquement)\n");
+    }
+    
+    if (!crypto_init()) {
+        fprintf(stderr, "Erreur initialisation cryptographie\n");
+        return 1;
+    }
+    
+    if (!db_init(&db)) {
+        fprintf(stderr, "Erreur initialisation base de donnees\n");
+        return 1;
+    }
+    
+    session_init();
+    
+    pthread_t cleanup_thread;
+    pthread_create(&cleanup_thread, NULL, session_cleanup_thread, NULL);
+    pthread_detach(cleanup_thread);
+    
+    if (use_ssl) {
+        ssl_ctx = init_ssl_context();
+        printf("SSL/TLS configure (TLS 1.3)\n");
+    }
+    
+    if ((server_fd = socket(AF_INET, SOCK_STREAM, 0)) == 0) {
+        perror("Socket failed");
+        return 1;
+    }
+    
+    int opt = 1;
+    setsockopt(server_fd, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt));
+    
+    address.sin_family = AF_INET;
+    address.sin_addr.s_addr = INADDR_ANY;
+    address.sin_port = htons(use_ssl ? SERVER_PORT : 8080);
+    
+    if (bind(server_fd, (struct sockaddr *)&address, sizeof(address)) < 0) {
+        perror("Bind failed");
+        return 1;
+    }
+    
+    if (listen(server_fd, MAX_CLIENTS) < 0) {
+        perror("Listen failed");
+        return 1;
+    }
+    
+    printf("\n");
+    printf("PASSWORD VAULT - PRODUCTION SERVER\n");
+    printf("URL: %s://localhost:%d\n", use_ssl ? "https" : "http", use_ssl ? SERVER_PORT : 8080);
+    printf("Securite: %s\n", use_ssl ? "TLS 1.3, Argon2id, AES-256" : "DEV MODE - NO SSL");
+    printf("Protection: OWASP Top 10\n\n");
+    
+    while (1) {
+        if ((client_socket = accept(server_fd, (struct sockaddr *)&address, (socklen_t*)&addrlen)) < 0) {
+            perror("Accept failed");
+            continue;
+        }
+        
+        ClientInfo *client = malloc(sizeof(ClientInfo));
+        client->socket = client_socket;
+        client->ssl = NULL;
+        
+        inet_ntop(AF_INET, &address.sin_addr, client->ip, sizeof(client->ip));
+        
+        if (use_ssl) {
+            client->ssl = SSL_new(ssl_ctx);
+            SSL_set_fd(client->ssl, client_socket);
+            
+            if (SSL_accept(client->ssl) <= 0) {
+                ERR_print_errors_fp(stderr);
+                SSL_free(client->ssl);
+                close(client_socket);
+                free(client);
+                continue;
+            }
+        }
+        
+        pthread_t thread;
+        pthread_create(&thread, NULL, handle_client, client);
+        pthread_detach(thread);
+    }
+    
+    if (use_ssl) SSL_CTX_free(ssl_ctx);
+    db_close(&db);
+    close(server_fd);
+    return 0;
+}
+#endif
+
 #include "../include/config.h"
 #include "../include/database.h"
 #include "../include/crypto.h"
@@ -27,7 +127,7 @@ void* handle_client(void* arg);
 void send_response(int socket, SSL *ssl, int status, const char *content_type, const char *body);
 void send_file(int socket, SSL *ssl, const char *filepath);
 void handle_api_request(int socket, SSL *ssl, const char *method, const char *path, 
-                       const char *body, const char *ip, const char *session_token);
+                       const char *body, const char *ip, const char *session_token, const char *csrf_token);
 char* parse_json_field(const char *json, const char *key);
 char* read_file(const char *filepath);
 
@@ -191,6 +291,12 @@ void* handle_client(void* arg) {
         sscanf(auth_header + 22, "%127s", session_token);
     }
     
+    char csrf_token[128] = {0};
+    char *csrf_header = strstr(buffer, "X-CSRF-Token: ");
+    if (csrf_header) {
+        sscanf(csrf_header + 14, "%127s", csrf_token);
+    }
+    
     char *body_start = strstr(buffer, "\r\n\r\n");
     if (body_start) {
         strncpy(body, body_start + 4, BUFFER_SIZE - 1);
@@ -199,7 +305,7 @@ void* handle_client(void* arg) {
     printf("[%s] %s %s\n", client->ip, method, path);
     
     if (strncmp(path, "/api/", 5) == 0) {
-        handle_api_request(client->socket, client->ssl, method, path, body, client->ip, session_token);
+        handle_api_request(client->socket, client->ssl, method, path, body, client->ip, session_token, csrf_token);
     } else if (strcmp(path, "/") == 0 || strcmp(path, "/index.html") == 0) {
         send_file(client->socket, client->ssl, "web/index.html");
     } else if (strstr(path, ".html") || strstr(path, ".css") || strstr(path, ".js")) {
@@ -234,7 +340,12 @@ void send_response(int socket, SSL *ssl, int status, const char *content_type, c
         "Content-Length: %lu\r\n"
         "Access-Control-Allow-Origin: *\r\n"
         "Access-Control-Allow-Methods: GET, POST, PUT, DELETE, OPTIONS\r\n"
-        "Access-Control-Allow-Headers: Content-Type, Authorization\r\n"
+        "Access-Control-Allow-Headers: Content-Type, Authorization, X-CSRF-Token\r\n"
+        "X-Content-Type-Options: nosniff\r\n"
+        "X-Frame-Options: DENY\r\n"
+        "X-XSS-Protection: 1; mode=block\r\n"
+        "Content-Security-Policy: default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'\r\n"
+        "Strict-Transport-Security: max-age=31536000; includeSubDomains\r\n"
         "Connection: close\r\n"
         "\r\n",
         status, status_text, content_type, strlen(body));
@@ -259,8 +370,15 @@ void send_file(int socket, SSL *ssl, const char *filepath) {
 }
 
 void handle_api_request(int socket, SSL *ssl, const char *method, const char *path, 
-                       const char *body, const char *ip, const char *session_token) {
+                       const char *body, const char *ip, const char *session_token, const char *csrf_token) {
     char response[BUFFER_SIZE];
+    
+    #define VALIDATE_CSRF(session) \
+        if (!csrf_token || !session_validate_csrf(session->token, csrf_token)) { \
+            snprintf(response, sizeof(response), "{\"error\":\"CSRF token invalide\"}"); \
+            send_response(socket, ssl, 403, "application/json", response); \
+            return; \
+        }
     
     pthread_mutex_lock(&db_mutex);
     int failed = db_get_failed_attempts(&db, ip, 15);
@@ -372,14 +490,14 @@ void handle_api_request(int socket, SSL *ssl, const char *method, const char *pa
         pthread_mutex_unlock(&db_mutex);
         
         if (password_valid) {
-            Session *new_session = session_create(user.id);
+            Session *new_session = session_create_with_key(user.id, password);
             
             if (new_session) {
                 snprintf(response, sizeof(response),
-                        "{\"success\":true,\"session_token\":\"%s\",\"expires_in\":%d}",
-                        new_session->token, SESSION_TIMEOUT);
+                        "{\"success\":true,\"session_token\":\"%s\",\"csrf_token\":\"%s\",\"expires_in\":%d}",
+                        new_session->token, new_session->csrf_token, SESSION_TIMEOUT);
                 send_response(socket, ssl, 200, "application/json", response);
-                printf("Connexion reussie: %s\n", ip);
+                printf("Connexion reussie: %s (CSRF active)\n", ip);
             } else {
                 snprintf(response, sizeof(response), "{\"error\":\"Erreur creation session\"}");
                 send_response(socket, ssl, 500, "application/json", response);
@@ -432,6 +550,8 @@ void handle_api_request(int socket, SSL *ssl, const char *method, const char *pa
             return;
         }
         
+        VALIDATE_CSRF(session);
+        
         char *website = parse_json_field(body, "website");
         char *username = parse_json_field(body, "username");
         char *password = parse_json_field(body, "password");
@@ -446,14 +566,15 @@ void handle_api_request(int socket, SSL *ssl, const char *method, const char *pa
         }
         
         pthread_mutex_lock(&db_mutex);
-        int success = db_add_password(&db, website, username, password, "");
+        int success = db_add_password_encrypted(&db, website, username, password, "", session->master_key);
         pthread_mutex_unlock(&db_mutex);
         
         if (success) {
-            snprintf(response, sizeof(response), "{\"success\":true}");
+            snprintf(response, sizeof(response), "{\"success\":true,\"message\":\"Mot de passe chiffre et stocke\"}");
             send_response(socket, ssl, 200, "application/json", response);
+            printf("Mot de passe ajoute (chiffre) pour %s\n", website);
         } else {
-            snprintf(response, sizeof(response), "{\"error\":\"Erreur\"}");
+            snprintf(response, sizeof(response), "{\"error\":\"Erreur lors du chiffrement/stockage\"}");
             send_response(socket, ssl, 500, "application/json", response);
         }
         
@@ -472,6 +593,8 @@ void handle_api_request(int socket, SSL *ssl, const char *method, const char *pa
             return;
         }
         
+        VALIDATE_CSRF(session);
+        
         int id = atoi(path + 15);
         
         pthread_mutex_lock(&db_mutex);
@@ -481,8 +604,9 @@ void handle_api_request(int socket, SSL *ssl, const char *method, const char *pa
         if (success) {
             snprintf(response, sizeof(response), "{\"success\":true}");
             send_response(socket, ssl, 200, "application/json", response);
+            printf("Mot de passe #%d supprime\n", id);
         } else {
-            snprintf(response, sizeof(response), "{\"error\":\"Erreur\"}");
+            snprintf(response, sizeof(response), "{\"error\":\"Erreur suppression\"}");
             send_response(socket, ssl, 500, "application/json", response);
         }
         return;
