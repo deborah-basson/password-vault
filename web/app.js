@@ -998,6 +998,83 @@ function notify(message, type = 'success') {
     }, 3000);
 }
 
+// ==================== CHARGEMENT DES LOGS DE SÉCURITÉ ====================
+
+async function loadSecurityLogs() {
+    const token = localStorage.getItem('session_token');
+    if (!token) return;
+
+    try {
+        const response = await fetch(`${API_URL}/security-logs`, {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+
+        if (response.ok) {
+            const data = await response.json();
+            updateSecurityDashboard(data);
+        }
+    } catch (err) {
+        console.error('Erreur chargement logs sécurité:', err);
+    }
+}
+
+function updateSecurityDashboard(data) {
+    // Mettre à jour les statistiques
+    document.getElementById('failed-attempts').textContent = data.stats.total_failed;
+    document.getElementById('suspicious-ips').textContent = data.stats.unique_ips;
+    document.getElementById('last-hour').textContent = data.stats.last_hour;
+
+    // Mettre à jour la liste des logs
+    const container = document.getElementById('security-logs-list');
+    
+    if (!data.security_logs || data.security_logs.length === 0) {
+        container.innerHTML = '<div class="security-log-entry">Aucune tentative suspecte récente</div>';
+        return;
+    }
+
+    container.innerHTML = data.security_logs.map(log => `
+        <div class="security-log-entry ${log.type === 'failed_login' ? 'suspicious' : 'warning'}">
+            <div>
+                <span class="log-ip">${escapeHtml(log.ip)}</span>
+                <span class="log-type">Tentative échouée</span>
+            </div>
+            <div class="log-timestamp">${formatTimestamp(log.timestamp)}</div>
+        </div>
+    `).join('');
+}
+
+function formatTimestamp(timestamp) {
+    const date = new Date(timestamp);
+    return date.toLocaleString('fr-FR', {
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit'
+    });
+}
+
+// Modifier la fonction showDashboard pour charger les logs
+function showDashboard() {
+    if (isLocked) {
+        showScreen('lock-screen');
+        return;
+    }
+    
+    showScreen('dashboard-screen');
+    loadPasswords();
+    loadSecurityLogs(); // ← AJOUT ICI
+    resetActivityTimer();
+    
+    const searchInput = document.getElementById('search-input');
+    if (searchInput) {
+        searchInput.value = '';
+        searchInput.addEventListener('input', filterPasswords);
+    }
+}
+
+// Recharger les logs périodiquement
+setInterval(loadSecurityLogs, 30000); // Toutes les 30 secondes
 
 function initializeEventListeners() {
     // Formulaires existants

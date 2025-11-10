@@ -672,6 +672,83 @@ void handle_api_request(int socket, SSL *ssl, const char *method, const char *pa
         if (recovery_code) free(recovery_code);
         return;
     }
+
+        // ==================== ROUTE LOGS DE SÉCURITÉ ====================
+    if (strcmp(path, "/api/security-logs") == 0 && strcmp(method, "GET") == 0) {
+        Session *session = session_get(session_token);
+        if (!session) {
+            snprintf(response, sizeof(response), "{\"error\":\"Session invalide\"}");
+            send_response(socket, ssl, 401, "application/json", response);
+            return;
+        }
+
+        pthread_mutex_lock(&db_mutex);
+        
+        // Récupérer les tentatives échouées récentes
+        const char *failed_sql = 
+            "SELECT ip_address, timestamp, action FROM login_attempts "
+            "WHERE success = 0 AND timestamp > datetime('now', '-24 hours') "
+            "ORDER BY timestamp DESC LIMIT 50";
+        
+        sqlite3_stmt *stmt;
+        strcpy(response, "{\"security_logs\":[");
+        int first = 1;
+        
+        if (sqlite3_prepare_v2(db.db, failed_sql, -1, &stmt, NULL) == SQLITE_OK) {
+            while (sqlite3_step(stmt) == SQLITE_ROW) {
+                if (!first) {
+                    strcat(response, ",");
+                }
+                first = 0;
+                
+                const char *ip = (const char*)sqlite3_column_text(stmt, 0);
+                const char *timestamp = (const char*)sqlite3_column_text(stmt, 1);
+                const char *action = (const char*)sqlite3_column_text(stmt, 2);
+                
+                char log_entry[512];
+                snprintf(log_entry, sizeof(log_entry),
+                        "{\"ip\":\"%s\",\"timestamp\":\"%s\",\"action\":\"%s\",\"type\":\"failed_login\"}",
+                        ip ? ip : "unknown", 
+                        timestamp ? timestamp : "unknown",
+                        action ? action : "unknown");
+                
+                strcat(response, log_entry);
+            }
+            sqlite3_finalize(stmt);
+        }
+        
+        // Récupérer les statistiques des dernières 24h
+        const char *stats_sql = 
+            "SELECT COUNT(*) as total_failed, "
+            "COUNT(DISTINCT ip_address) as unique_ips, "
+            "SUM(CASE WHEN timestamp > datetime('now', '-1 hour') THEN 1 ELSE 0 END) as last_hour "
+            "FROM login_attempts "
+            "WHERE success = 0 AND timestamp > datetime('now', '-24 hours')";
+        
+        int total_failed = 0, unique_ips = 0, last_hour = 0;
+        
+        if (sqlite3_prepare_v2(db.db, stats_sql, -1, &stmt, NULL) == SQLITE_OK) {
+            if (sqlite3_step(stmt) == SQLITE_ROW) {
+                total_failed = sqlite3_column_int(stmt, 0);
+                unique_ips = sqlite3_column_int(stmt, 1);
+                last_hour = sqlite3_column_int(stmt, 2);
+            }
+            sqlite3_finalize(stmt);
+        }
+        
+        pthread_mutex_unlock(&db_mutex);
+        
+        strcat(response, "],\"stats\":{");
+        char stats[256];
+        snprintf(stats, sizeof(stats),
+                "\"total_failed\":%d,\"unique_ips\":%d,\"last_hour\":%d",
+                total_failed, unique_ips, last_hour);
+        strcat(response, stats);
+        strcat(response, "}}");
+        
+        send_response(socket, ssl, 200, "application/json", response);
+        return;
+    }
         // ==================== ROUTE RÉINITIALISATION MOT DE PASSE ====================
     if (strcmp(path, "/api/reset-password") == 0 && strcmp(method, "POST") == 0) {
         char *new_password = parse_json_field(body, "password");

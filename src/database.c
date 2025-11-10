@@ -445,6 +445,50 @@ int db_add_password_encrypted(Database *db, const char *website, const char *use
     return result;
 }
 
+int db_get_suspicious_ips(Database *db, char ***ips, int *count) {
+    const char *sql = 
+        "SELECT ip_address, COUNT(*) as attempts "
+        "FROM login_attempts "
+        "WHERE success = 0 AND timestamp > datetime('now', '-15 minutes') "
+        "GROUP BY ip_address "
+        "HAVING COUNT(*) >= 3 "
+        "ORDER BY attempts DESC";
+    
+    sqlite3_stmt *stmt;
+    
+    if (sqlite3_prepare_v2(db->db, sql, -1, &stmt, NULL) != SQLITE_OK) {
+        return 0;
+    }
+    
+    *count = 0;
+    while (sqlite3_step(stmt) == SQLITE_ROW) {
+        (*count)++;
+    }
+    
+    if (*count == 0) {
+        sqlite3_finalize(stmt);
+        *ips = NULL;
+        return 1;
+    }
+    
+    *ips = malloc(*count * sizeof(char*));
+    sqlite3_reset(stmt);
+    
+    int i = 0;
+    while (sqlite3_step(stmt) == SQLITE_ROW && i < *count) {
+        const char *ip = (const char*)sqlite3_column_text(stmt, 0);
+        int attempts = sqlite3_column_int(stmt, 1);
+        
+        char *entry = malloc(64);
+        snprintf(entry, 64, "%s (%d tentatives)", ip, attempts);
+        (*ips)[i] = entry;
+        i++;
+    }
+    
+    sqlite3_finalize(stmt);
+    return 1;
+}
+
 int db_get_password_decrypted(Database *db, int id, PasswordEntry *entry,
                               const char *master_key) {
     if (!master_key) {

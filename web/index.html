@@ -200,6 +200,7 @@
             </div>
         </div>
 
+
         <!-- Dashboard principal -->
         <div id="dashboard-screen" class="screen hidden">
             <div class="dashboard-header">
@@ -208,6 +209,33 @@
                     <button id="btn-add" onclick="showAddPassword()" class="btn btn-primary">➕ Ajouter</button>
                     <button id="btn-generate" onclick="generatePasswordPopup()" class="btn btn-secondary">🎲 Générer</button>
                     <button id="btn-logout" onclick="logout()" class="btn btn-danger">🚪 Déconnexion</button>
+                </div>
+            </div>
+
+            <!-- AJOUT: Section Alertes de Sécurité -->
+            <div class="security-alerts-section">
+                <h3>🔒 Alertes de Sécurité</h3>
+                
+                <div class="security-stats">
+                    <div class="stat-card">
+                        <h4>Tentatives échouées (24h)</h4>
+                        <div class="stat-value" id="failed-attempts">0</div>
+                    </div>
+                    <div class="stat-card">
+                        <h4>IPs suspectes</h4>
+                        <div class="stat-value" id="suspicious-ips">0</div>
+                    </div>
+                    <div class="stat-card">
+                        <h4>Dernière heure</h4>
+                        <div class="stat-value" id="last-hour">0</div>
+                    </div>
+                </div>
+
+                <div class="security-logs">
+                    <h4>Dernières tentatives suspectes</h4>
+                    <div id="security-logs-list" class="logs-container">
+                        <div class="loading">Chargement des logs...</div>
+                    </div>
                 </div>
             </div>
 
