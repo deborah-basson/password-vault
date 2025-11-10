@@ -328,3 +328,53 @@ char* sanitize_html(const char *input) {
 void secure_zero_memory(void *ptr, size_t len) {
     sodium_memzero(ptr, len);
 }
+
+void generate_secure_passphrase(char *output, int length) {
+    if (!output) return;
+    
+    if (length < 16) length = 16;
+    if (length > 255) length = 255;
+    
+    const char *words[] = {
+        "correct", "battery", "horse", "staple", "memory", "system",
+        "security", "vault", "encrypt", "decrypt", "access", "control",
+        "random", "secure", "password", "manager", "protection", "privacy",
+        "quantum", "crypto", "shield", "defense", "firewall", "gateway",
+        NULL
+    };
+    
+    const char *separators = "-_=+!@#$";
+    unsigned char random_bytes[32];
+    randombytes_buf(random_bytes, sizeof(random_bytes));
+    
+    int word_count = 0;
+    while (words[word_count] != NULL) word_count++;
+    
+    output[0] = '\0';
+    size_t current_len = 0;
+    
+    // Générer 3-4 mots aléatoires
+    int word_num = 3 + (random_bytes[0] % 2); // 3 ou 4 mots
+    
+    for (int i = 0; i < word_num && current_len < (size_t)length - 8; i++) {
+        if (i > 0) {
+            char sep[2] = {separators[random_bytes[i] % strlen(separators)], '\0'};
+            strcat(output, sep);
+            current_len++;
+        }
+        
+        const char *word = words[random_bytes[i + 4] % word_count];
+        strcat(output, word);
+        current_len += strlen(word);
+    }
+    
+    // Ajouter un suffixe numérique et symbolique
+    if (current_len < (size_t)length - 4) {
+        char suffix[16];
+        snprintf(suffix, sizeof(suffix), "%c%02d%c", 
+                 separators[random_bytes[8] % strlen(separators)],
+                 random_bytes[9] % 100,
+                 separators[random_bytes[10] % strlen(separators)]);
+        strcat(output, suffix);
+    }
+}

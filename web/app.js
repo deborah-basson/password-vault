@@ -7,7 +7,7 @@ let lastActivity = Date.now();
 let isLocked = false;
 
 const LOCK_TIMEOUT = 180000; // 3 minutes
-const CLIPBOARD_TIMEOUT = 30000; // 30 secondes
+const CLIPBOARD_TIMEOUT = 10000; // 30 secondes
 
 // ==================== INITIALISATION ====================
 
@@ -111,62 +111,11 @@ function initializeRegisterForm() {
 
 // ==================== QUESTIONS DE SÉCURITÉ ====================
 
-function initializeSecurityQuestionsForm() {
-    const securityForm = document.getElementById('security-questions-form');
-    if (securityForm) {
-        securityForm.addEventListener('submit', async (e) => {
-            e.preventDefault();
-            
-            const question1 = document.getElementById('question1').value;
-            const answer1 = document.getElementById('answer1').value;
-            const question2 = document.getElementById('question2').value;
-            const answer2 = document.getElementById('answer2').value;
-            const question3 = document.getElementById('question3').value;
-            const answer3 = document.getElementById('answer3').value;
-            
-            if (!question1 || !answer1 || !question2 || !answer2 || !question3 || !answer3) {
-                notify('Veuillez remplir toutes les questions et réponses', 'error');
-                return;
-            }
-            
-            try {
-                const response = await fetch(`${API_URL}/setup-security-questions`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        question1,
-                        answer1,
-                        question2,
-                        answer2,
-                        question3,
-                        answer3
-                    })
-                });
-                
-                const data = await response.json();
-                
-                if (response.ok) {
-                    document.getElementById('recovery-code-value').textContent = data.recovery_code;
-                    showScreen('recovery-code-screen');
-                    notify('✅ Questions de sécurité configurées', 'success');
-                } else {
-                    notify(data.error || 'Erreur configuration questions', 'error');
-                }
-            } catch (err) {
-                console.error('Erreur configuration questions:', err);
-                notify('Erreur réseau lors de la configuration', 'error');
-            }
-        });
-    }
-}
-// ==================== GESTION DES QUESTIONS PRÉDÉFINIES ====================
-
 function updateQuestionPlaceholder(questionNumber) {
     const select = document.getElementById(`question${questionNumber}`);
     const answerInput = document.getElementById(`answer${questionNumber}`);
     
     if (select.value) {
-        // Donner un indice basé sur la question sélectionnée
         const question = select.value;
         let placeholder = "Votre réponse";
         
@@ -205,8 +154,6 @@ function updateQuestionPlaceholder(questionNumber) {
         answerInput.placeholder = placeholder;
     }
 }
-
-// ==================== QUESTIONS DE SÉCURITÉ ====================
 
 function initializeSecurityQuestionsForm() {
     const securityForm = document.getElementById('security-questions-form');
@@ -264,39 +211,6 @@ function initializeSecurityQuestionsForm() {
             }
         });
     }
-}
-
-function validateSecurityQuestions() {
-    const question1 = document.getElementById('question1').value;
-    const answer1 = document.getElementById('answer1').value;
-    const question2 = document.getElementById('question2').value;
-    const answer2 = document.getElementById('answer2').value;
-    const question3 = document.getElementById('question3').value;
-    const answer3 = document.getElementById('answer3').value;
-    
-    // Vérifier que toutes les questions sont remplies
-    if (!question1 || !question2 || !question3) {
-        return "Veuillez sélectionner 3 questions";
-    }
-    
-    // Vérifier que les réponses sont remplies
-    if (!answer1 || !answer2 || !answer3) {
-        return "Veuillez répondre aux 3 questions";
-    }
-    
-    // Vérifier que les questions sont différentes
-    const questions = [question1, question2, question3];
-    const uniqueQuestions = new Set(questions);
-    if (uniqueQuestions.size !== 3) {
-        return "Veuillez choisir des questions différentes";
-    }
-    
-    // Vérifier la longueur des réponses
-    if (answer1.length < 2 || answer2.length < 2 || answer3.length < 2) {
-        return "Les réponses doivent faire au moins 2 caractères";
-    }
-    
-    return null; // Tout est valide
 }
 
 // ==================== CODE DE RÉCUPÉRATION ====================
@@ -626,6 +540,8 @@ async function loadPasswords() {
                 <div class="username">${escapeHtml(pwd.username)}</div>
                 <div class="password-actions">
                     <button class="btn btn-secondary" onclick="copyPassword(${pwd.id})">📋 Copier</button>
+                    <button class="btn btn-info" onclick="showEditPassword(${pwd.id}, '${escapeHtml(pwd.website)}', '${escapeHtml(pwd.username)}')">✏️ Modifier</button>
+                    <button class="btn btn-warning" onclick="showPasswordHistory(${pwd.id})">📊 Historique</button>
                     <button class="btn btn-danger" onclick="deletePassword(${pwd.id})">🗑️ Supprimer</button>
                 </div>
             </div>
@@ -696,6 +612,111 @@ async function copyPassword(id) {
         notify('Erreur réseau', 'error');
         console.error(err);
     }
+}
+
+// ==================== MODIFICATION MOT DE PASSE ====================
+
+function showEditPassword(id, website, username) {
+    document.getElementById('edit-password-id').value = id;
+    document.getElementById('edit-website').value = website;
+    document.getElementById('edit-username').value = username;
+    document.getElementById('edit-new-password').value = '';
+    document.getElementById('edit-modal').classList.remove('hidden');
+}
+
+async function updatePassword() {
+    const id = document.getElementById('edit-password-id').value;
+    const newPassword = document.getElementById('edit-new-password').value;
+    
+    const token = localStorage.getItem('session_token');
+    const csrf = localStorage.getItem('csrf_token');
+    
+    if (!newPassword) {
+        notify('❌ Nouveau mot de passe requis', 'error');
+        return;
+    }
+    
+    try {
+        const response = await fetch(`/api/passwords/${id}/update`, {
+            method: 'PUT',
+            headers: { 
+                'Authorization': `Bearer ${token}`,
+                'X-CSRF-Token': csrf,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ new_password: newPassword })
+        });
+        
+        const data = await response.json();
+        
+        if (response.ok) {
+            notify('✅ Mot de passe mis à jour', 'success');
+            closeEditModal();
+            loadPasswords();
+        } else {
+            notify(data.error || '❌ Erreur mise à jour', 'error');
+        }
+    } catch (err) {
+        notify('❌ Erreur réseau', 'error');
+        console.error(err);
+    }
+}
+
+function closeEditModal() {
+    document.getElementById('edit-modal').classList.add('hidden');
+    document.getElementById('edit-new-password').value = '';
+}
+
+function autoGeneratePasswordForEdit() {
+    const password = generateSecurePassword(16);
+    document.getElementById('edit-new-password').value = password;
+    document.getElementById('edit-new-password').type = 'text';
+    notify('🎲 Mot de passe généré', 'success');
+}
+
+// ==================== HISTORIQUE MOT DE PASSE ====================
+
+async function showPasswordHistory(id) {
+    const token = localStorage.getItem('session_token');
+    
+    try {
+        const response = await fetch(`/api/passwords/${id}/history`, {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        
+        const data = await response.json();
+        
+        if (response.ok) {
+            displayPasswordHistory(data.history);
+        } else {
+            notify('❌ Erreur chargement historique', 'error');
+        }
+    } catch (err) {
+        notify('❌ Erreur réseau', 'error');
+        console.error(err);
+    }
+}
+
+function displayPasswordHistory(history) {
+    const container = document.getElementById('history-list');
+    
+    if (!history || history.length === 0) {
+        container.innerHTML = '<div class="loading">Aucun historique disponible</div>';
+    } else {
+        container.innerHTML = history.map(entry => `
+            <div class="history-entry">
+                <div class="history-website">${escapeHtml(entry.website)}</div>
+                <div class="history-username">${escapeHtml(entry.username)}</div>
+                <div class="history-date">${formatTimestamp(entry.changed_at)}</div>
+            </div>
+        `).join('');
+    }
+    
+    document.getElementById('history-modal').classList.remove('hidden');
+}
+
+function closeHistoryModal() {
+    document.getElementById('history-modal').classList.add('hidden');
 }
 
 // ==================== SUPPRIMER MOT DE PASSE ====================
@@ -1054,27 +1075,23 @@ function formatTimestamp(timestamp) {
     });
 }
 
-// Modifier la fonction showDashboard pour charger les logs
-function showDashboard() {
-    if (isLocked) {
-        showScreen('lock-screen');
-        return;
-    }
+// ==================== GESTION DE L'INACTIVITÉ ====================
+
+function resetActivityTimer() {
+    lastActivity = Date.now();
+    if (autoLockTimer) clearTimeout(autoLockTimer);
     
-    showScreen('dashboard-screen');
-    loadPasswords();
-    loadSecurityLogs(); // ← AJOUT ICI
-    resetActivityTimer();
-    
-    const searchInput = document.getElementById('search-input');
-    if (searchInput) {
-        searchInput.value = '';
-        searchInput.addEventListener('input', filterPasswords);
-    }
+    autoLockTimer = setTimeout(() => {
+        if (!isLocked && document.getElementById('dashboard-screen') && 
+            !document.getElementById('dashboard-screen').classList.contains('hidden')) {
+            isLocked = true;
+            showScreen('lock-screen');
+            notify('🔒 Application verrouillée par sécurité', 'warning');
+        }
+    }, LOCK_TIMEOUT);
 }
 
-// Recharger les logs périodiquement
-setInterval(loadSecurityLogs, 30000); // Toutes les 30 secondes
+// ==================== ÉCOUTEURS D'ÉVÉNEMENTS ====================
 
 function initializeEventListeners() {
     // Formulaires existants
@@ -1084,7 +1101,7 @@ function initializeEventListeners() {
     initializeAddPasswordForm();
     initializeSecurityQuestionsForm();
     
-    // NOUVEAUX: Formulaires de récupération
+    // Formulaires de récupération
     initializeForgotPasswordForm();
     initializeResetPasswordForm();
     
@@ -1092,12 +1109,15 @@ function initializeEventListeners() {
     updateStrengthBar('register-password', 'strength-bar', 'strength-text');
     updateStrengthBar('add-password', 'add-strength-bar', null);
     updateStrengthBar('reset-password', 'reset-strength-bar', 'reset-strength-text');
+    updateStrengthBar('edit-new-password', 'edit-strength-bar', null);
     
     // Clavier
     document.addEventListener('keydown', (e) => {
         if (e.key === 'Escape') {
             closeModal();
             closeGenerateModal();
+            closeEditModal();
+            closeHistoryModal();
         }
     });
     
@@ -1121,3 +1141,6 @@ function initializeEventListeners() {
         form.setAttribute('novalidate', 'novalidate');
     });
 }
+
+// Recharger les logs périodiquement
+setInterval(loadSecurityLogs, 30000); // Toutes les 30 secondes

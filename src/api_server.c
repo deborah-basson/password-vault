@@ -86,6 +86,8 @@ void send_response(int socket, SSL *ssl, int status, const char *content_type, c
     else if (status == 401) status_text = "Unauthorized";
     else if (status == 403) status_text = "Forbidden";
     else if (status == 404) status_text = "Not Found";
+    else if (status == 409) status_text = "Conflict";
+    else if (status == 423) status_text = "Locked";
     else if (status == 500) status_text = "Internal Server Error";
     
     snprintf(header, sizeof(header),
@@ -93,7 +95,7 @@ void send_response(int socket, SSL *ssl, int status, const char *content_type, c
              "Content-Type: %s; charset=utf-8\r\n"
              "Content-Length: %zu\r\n"
              "Access-Control-Allow-Origin: *\r\n"
-             "Access-Control-Allow-Methods: GET, POST, DELETE, OPTIONS\r\n"
+             "Access-Control-Allow-Methods: GET, POST, PUT, DELETE, OPTIONS\r\n"
              "Access-Control-Allow-Headers: Content-Type, Authorization, X-CSRF-Token\r\n"
              "X-Content-Type-Options: nosniff\r\n"
              "X-Frame-Options: DENY\r\n"
@@ -283,6 +285,11 @@ void handle_api_request(int socket, SSL *ssl, const char *method, const char *pa
         }
         
         int success = db_create_user(&db, hash, salt, "");
+        
+        // Créer la politique de sécurité par défaut
+        if (success) {
+            db_create_user_security_policy(&db, 1);
+        }
         
         pthread_mutex_unlock(&db_mutex);
         
@@ -556,6 +563,96 @@ void handle_api_request(int socket, SSL *ssl, const char *method, const char *pa
         return;
     }
     
+    // ==================== ROUTE MODIFICATION MOT DE PASSE ====================
+    if (strncmp(path, "/api/passwords/", 15) == 0 && strstr(path, "/update") != NULL && strcmp(method, "PUT") == 0) {
+        Session *session = session_get(session_token);
+        if (!session) {
+            snprintf(response, sizeof(response), "{\"error\":\"Session invalide\"}");
+            send_response(socket, ssl, 401, "application/json", response);
+            return;
+        }
+        
+        if (!session_validate_csrf(session->token, csrf_token)) {
+            snprintf(response, sizeof(response), "{\"error\":\"CSRF token invalide\"}");
+            send_response(socket, ssl, 403, "application/json", response);
+            return;
+        }
+        
+        int id = atoi(path + 15);
+        char *new_password = parse_json_field(body, "new_password");
+        
+        if (!new_password) {
+            snprintf(response, sizeof(response), "{\"error\":\"Nouveau mot de passe manquant\"}");
+            send_response(socket, ssl, 400, "application/json", response);
+            return;
+        }
+        
+        // Chiffrer le nouveau mot de passe
+        char encrypted[1024];
+        size_t encrypted_len = sizeof(encrypted);
+        
+        if (!encrypt_data(new_password, session->master_key, encrypted, &encrypted_len)) {
+            snprintf(response, sizeof(response), "{\"error\":\"Erreur chiffrement\"}");
+            send_response(socket, ssl, 500, "application/json", response);
+            secure_zero_memory(new_password, strlen(new_password));
+            free(new_password);
+            return;
+        }
+        
+        pthread_mutex_lock(&db_mutex);
+        int result = db_update_password_with_history(&db, id, encrypted, session->master_key);
+        pthread_mutex_unlock(&db_mutex);
+        
+        secure_zero_memory(encrypted, sizeof(encrypted));
+        secure_zero_memory(new_password, strlen(new_password));
+        free(new_password);
+        
+        if (result == 1) {
+            snprintf(response, sizeof(response), "{\"success\":true,\"message\":\"Mot de passe mis à jour\"}");
+            send_response(socket, ssl, 200, "application/json", response);
+        } else if (result == -1) {
+            snprintf(response, sizeof(response), "{\"error\":\"Ce mot de passe a déjà été utilisé récemment\"}");
+            send_response(socket, ssl, 409, "application/json", response);
+        } else {
+            snprintf(response, sizeof(response), "{\"error\":\"Erreur mise à jour\"}");
+            send_response(socket, ssl, 500, "application/json", response);
+        }
+        return;
+    }
+    
+    // ==================== ROUTE HISTORIQUE MOT DE PASSE ====================
+    if (strncmp(path, "/api/passwords/", 15) == 0 && strstr(path, "/history") != NULL && strcmp(method, "GET") == 0) {
+        Session *session = session_get(session_token);
+        if (!session) {
+            snprintf(response, sizeof(response), "{\"error\":\"Session invalide\"}");
+            send_response(socket, ssl, 401, "application/json", response);
+            return;
+        }
+        
+        int id = atoi(path + 15);
+        
+        pthread_mutex_lock(&db_mutex);
+        PasswordHistoryEntry *entries;
+        int count;
+        db_get_password_history(&db, id, &entries, &count);
+        pthread_mutex_unlock(&db_mutex);
+        
+        strcpy(response, "{\"history\":[");
+        for (int i = 0; i < count; i++) {
+            char entry_json[2048];
+            snprintf(entry_json, sizeof(entry_json),
+                    "%s{\"id\":%d,\"changed_at\":\"%s\",\"website\":\"%s\",\"username\":\"%s\"}",
+                    i > 0 ? "," : "", entries[i].id, entries[i].changed_at, 
+                    entries[i].website, entries[i].username);
+            strcat(response, entry_json);
+        }
+        strcat(response, "]}");
+        
+        send_response(socket, ssl, 200, "application/json", response);
+        if (entries) free(entries);
+        return;
+    }
+    
     // ==================== ROUTE SUPPRESSION ====================
     if (strncmp(path, "/api/passwords/", 15) == 0 && strcmp(method, "DELETE") == 0) {
         Session *session = session_get(session_token);
@@ -617,8 +714,6 @@ void handle_api_request(int socket, SSL *ssl, const char *method, const char *pa
         return;
     }
 
-    
-    
     // ==================== ROUTE RÉCUPÉRATION ====================
     if (strcmp(path, "/api/recover-account") == 0 && strcmp(method, "POST") == 0) {
         char *answer1 = parse_json_field(body, "answer1");
@@ -673,7 +768,7 @@ void handle_api_request(int socket, SSL *ssl, const char *method, const char *pa
         return;
     }
 
-        // ==================== ROUTE LOGS DE SÉCURITÉ ====================
+    // ==================== ROUTE LOGS DE SÉCURITÉ ====================
     if (strcmp(path, "/api/security-logs") == 0 && strcmp(method, "GET") == 0) {
         Session *session = session_get(session_token);
         if (!session) {
@@ -749,7 +844,8 @@ void handle_api_request(int socket, SSL *ssl, const char *method, const char *pa
         send_response(socket, ssl, 200, "application/json", response);
         return;
     }
-        // ==================== ROUTE RÉINITIALISATION MOT DE PASSE ====================
+
+    // ==================== ROUTE RÉINITIALISATION MOT DE PASSE ====================
     if (strcmp(path, "/api/reset-password") == 0 && strcmp(method, "POST") == 0) {
         char *new_password = parse_json_field(body, "password");
         
@@ -817,6 +913,7 @@ void handle_api_request(int socket, SSL *ssl, const char *method, const char *pa
         free(new_password);
         return;
     }
+    
     snprintf(response, sizeof(response), "{\"error\":\"Route non implementee\"}");
     send_response(socket, ssl, 404, "application/json", response);
 }
@@ -921,7 +1018,8 @@ int main(int argc, char *argv[]) {
     printf("🔐 PASSWORD VAULT - PRODUCTION SERVER\n");
     printf("📍 URL: https://localhost:%d\n", SERVER_PORT);
     printf("🔒 Sécurité: TLS 1.2+, Argon2id, AES-256\n");
-    printf("🛡️  Protection: OWASP Top 10, HTTPS obligatoire\n\n");
+    printf("🛡️  Protection: OWASP Top 10, HTTPS obligatoire\n");
+    printf("📊 Fonctionnalités: Historique des mots de passe, Sécurité renforcée\n\n");
     
     while (1) {
         if ((client_socket = accept(server_fd, (struct sockaddr *)&address, (socklen_t*)&addrlen)) < 0) {

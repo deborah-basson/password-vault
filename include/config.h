@@ -13,10 +13,15 @@
 #define MIN_PASSWORD_LENGTH 12
 #define BCRYPT_COST 12
 
+#define HASH_LENGTH 128
+#define SALT_LENGTH 32
+#define TOTP_SECRET_LENGTH 32
+
 // Chemins
 #define CERT_FILE "cert.pem"
 #define KEY_FILE "key.pem"
 #define WEB_ROOT "web"
+#define DB_FILE "vault.db"  
 
 // TLS Configuration
 #define MIN_TLS_VERSION TLS1_3_VERSION

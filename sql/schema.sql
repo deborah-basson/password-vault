@@ -1,7 +1,7 @@
 -- ============================================
 -- SCHEMA BASE DE DONNÉES - PASSWORD VAULT
--- Version: 1.0
--- Description: Structure sécurisée pour gestionnaire de mots de passe
+-- Version: 2.0
+-- Description: Structure sécurisée avec historique des mots de passe
 -- ============================================
 
 -- Table des utilisateurs
@@ -50,6 +50,51 @@ CREATE TABLE IF NOT EXISTS sessions (
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 );
 
+-- Table d'historique des mots de passe (améliorée)
+CREATE TABLE IF NOT EXISTS password_history (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    password_id INTEGER NOT NULL,
+    encrypted_password TEXT NOT NULL,
+    website TEXT NOT NULL,
+    username TEXT NOT NULL,
+    changed_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (password_id) REFERENCES passwords(id) ON DELETE CASCADE
+);
+
+-- Table des politiques de sécurité utilisateur
+CREATE TABLE IF NOT EXISTS user_security_policies (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER DEFAULT 1,
+    require_2fa INTEGER DEFAULT 1,
+    password_min_length INTEGER DEFAULT 12,
+    require_mixed_case INTEGER DEFAULT 1,
+    require_numbers INTEGER DEFAULT 1,
+    require_symbols INTEGER DEFAULT 1,
+    password_history_size INTEGER DEFAULT 5,
+    max_login_attempts INTEGER DEFAULT 3,
+    session_timeout INTEGER DEFAULT 900,
+    auto_lock_timeout INTEGER DEFAULT 300,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+);
+
+-- Table des questions de sécurité
+CREATE TABLE IF NOT EXISTS security_questions (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER DEFAULT 1,
+    question1 TEXT NOT NULL,
+    answer1_hash TEXT NOT NULL,
+    question2 TEXT NOT NULL,
+    answer2_hash TEXT NOT NULL,
+    question3 TEXT NOT NULL,
+    answer3_hash TEXT NOT NULL,
+    recovery_code TEXT NOT NULL,
+    recovery_attempts INTEGER DEFAULT 0,
+    locked_until DATETIME,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+);
+
 -- ============================================
 -- INDEX POUR PERFORMANCES
 -- ============================================
@@ -75,6 +120,12 @@ CREATE INDEX IF NOT EXISTS idx_sessions_token
 CREATE INDEX IF NOT EXISTS idx_sessions_expiry 
     ON sessions(expires_at);
 
+CREATE INDEX IF NOT EXISTS idx_password_history_composite 
+    ON password_history(password_id, changed_at DESC);
+
+CREATE INDEX IF NOT EXISTS idx_user_policies 
+    ON user_security_policies(user_id);
+
 -- ============================================
 -- TRIGGERS POUR MISE À JOUR AUTOMATIQUE
 -- ============================================
@@ -95,99 +146,33 @@ BEGIN
     UPDATE passwords SET updated_at = CURRENT_TIMESTAMP WHERE id = NEW.id;
 END;
 
+-- Trigger pour sauvegarder dans l'historique lors de la modification
+CREATE TRIGGER IF NOT EXISTS backup_password_history 
+    AFTER UPDATE OF encrypted_password ON passwords
+    FOR EACH ROW
+BEGIN
+    INSERT INTO password_history (password_id, encrypted_password, website, username)
+    VALUES (OLD.id, OLD.encrypted_password, OLD.website, OLD.username);
+    
+    -- Supprimer les anciennes entrées au-delà de la limite
+    DELETE FROM password_history 
+    WHERE password_id = OLD.id 
+    AND id NOT IN (
+        SELECT id FROM password_history 
+        WHERE password_id = OLD.id 
+        ORDER BY changed_at DESC 
+        LIMIT (SELECT COALESCE(password_history_size, 5) FROM user_security_policies WHERE user_id = OLD.user_id)
+    );
+END;
+
 -- ============================================
--- VUES POUR STATISTIQUES (optionnel)
+-- DONNÉES PAR DÉFAUT
 -- ============================================
 
-CREATE VIEW IF NOT EXISTS v_failed_login_stats AS
-SELECT 
-    ip_address,
-    COUNT(*) as attempt_count,
-    MAX(timestamp) as last_attempt,
-    datetime('now', '-15 minutes') as cutoff_time
-FROM login_attempts
-WHERE success = 0 
-  AND timestamp > datetime('now', '-15 minutes')
-GROUP BY ip_address
-HAVING COUNT(*) >= 3;
-
-CREATE VIEW IF NOT EXISTS v_password_summary AS
-SELECT 
-    COUNT(*) as total_passwords,
-    COUNT(DISTINCT website) as unique_websites,
-    MAX(created_at) as last_added,
-    MIN(created_at) as first_added
-FROM passwords;
-
--- ==================== NOUVELLES TABLES POUR FONCTIONNALITÉS AVANCÉES ====================
-
--- Table d'historique des mots de passe
-CREATE TABLE IF NOT EXISTS password_history (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    password_id INTEGER NOT NULL,
-    encrypted_password TEXT NOT NULL,
-    changed_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (password_id) REFERENCES passwords(id) ON DELETE CASCADE
+INSERT OR IGNORE INTO user_security_policies (
+    user_id, require_2fa, password_min_length, require_mixed_case, 
+    require_numbers, require_symbols, password_history_size, 
+    max_login_attempts, session_timeout, auto_lock_timeout
+) VALUES (
+    1, 1, 12, 1, 1, 1, 5, 3, 900, 300
 );
-
--- Table des événements de sécurité
-CREATE TABLE IF NOT EXISTS security_events (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    action TEXT NOT NULL,
-    severity TEXT NOT NULL,
-    description TEXT NOT NULL,
-    ip_address TEXT,
-    timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
-);
-
--- Table des politiques de sécurité
-CREATE TABLE IF NOT EXISTS security_policies (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    policy_name TEXT UNIQUE NOT NULL,
-    policy_value TEXT NOT NULL,
-    description TEXT,
-    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
-);
-
--- Table des questions de sécurité
-CREATE TABLE IF NOT EXISTS security_questions (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    user_id INTEGER DEFAULT 1,
-    question1 TEXT NOT NULL,
-    answer1_hash TEXT NOT NULL,
-    question2 TEXT NOT NULL,
-    answer2_hash TEXT NOT NULL,
-    question3 TEXT NOT NULL,
-    answer3_hash TEXT NOT NULL,
-    recovery_code TEXT NOT NULL,
-    recovery_attempts INTEGER DEFAULT 0,
-    locked_until DATETIME,
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
-);
-
--- ==================== INDEX POUR LES NOUVELLES TABLES ====================
-
-CREATE INDEX IF NOT EXISTS idx_password_history 
-    ON password_history(password_id, changed_at DESC);
-
-CREATE INDEX IF NOT EXISTS idx_security_events 
-    ON security_events(timestamp DESC);
-
--- ==================== DONNÉES PAR DÉFAUT POUR LES POLITIQUES ====================
-
-INSERT OR REPLACE INTO security_policies (policy_name, policy_value, description) VALUES
-('SESSION_TIMEOUT', '180', 'Durée d''inactivité avant verrouillage (secondes)'),
-('MAX_PASSWORD_AGE', '90', 'Âge maximum des mots de passe (jours)'),
-('PASSWORD_HISTORY', '5', 'Nombre d''anciens mots de passe à conserver'),
-('MAX_LOGIN_ATTEMPTS', '5', 'Tentatives de connexion avant verrouillage'),
-('LOCKOUT_DURATION', '900', 'Durée du verrouillage (secondes)');
-
--- ==================== VUES POUR RAPPORTS DE SÉCURITÉ ====================
-
-CREATE VIEW IF NOT EXISTS v_security_dashboard AS
-SELECT 
-    (SELECT COUNT(*) FROM security_events WHERE severity = 'critical' AND timestamp > datetime('now', '-7 days')) as critical_events_7d,
-    (SELECT COUNT(*) FROM security_events WHERE severity = 'high' AND timestamp > datetime('now', '-7 days')) as high_events_7d,
-    (SELECT COUNT(*) FROM passwords WHERE created_at < datetime('now', '-90 days')) as expired_passwords,
-    (SELECT COUNT(*) FROM login_attempts WHERE success = 0 AND timestamp > datetime('now', '-1 day')) as failed_logins_24h;

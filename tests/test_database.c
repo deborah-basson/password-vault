@@ -4,7 +4,7 @@
 #include <unistd.h>
 #include "../include/database.h"
 
-void setup_database(void) {
+void setup_database_test(void) {
     unlink("vault.db");
     unlink("vault.db-shm");
     unlink("vault.db-wal");
@@ -23,7 +23,7 @@ static void create_test_user(Database *db) {
     db_create_user(db, hash, salt, totp);
 }
 
-Test(database, init_and_close, .init = setup_database, .fini = cleanup_database) {
+Test(database, init_and_close, .init = setup_database_test, .fini = cleanup_database) {
     printf("[TEST] Initialisation et fermeture de la base de données\n");
     fflush(stdout);
     
@@ -33,7 +33,7 @@ Test(database, init_and_close, .init = setup_database, .fini = cleanup_database)
     db_close(&db);
 }
 
-Test(database, create_user, .init = setup_database, .fini = cleanup_database) {
+Test(database, create_user, .init = setup_database_test, .fini = cleanup_database) {
     printf("[TEST] Création d'un utilisateur dans la base de données\n");
     fflush(stdout);
     
@@ -50,7 +50,7 @@ Test(database, create_user, .init = setup_database, .fini = cleanup_database) {
     db_close(&db);
 }
 
-Test(database, get_user, .init = setup_database, .fini = cleanup_database) {
+Test(database, get_user, .init = setup_database_test, .fini = cleanup_database) {
     printf("[TEST] Récupération d'un utilisateur\n");
     fflush(stdout);
     
@@ -67,7 +67,7 @@ Test(database, get_user, .init = setup_database, .fini = cleanup_database) {
     db_close(&db);
 }
 
-Test(database, add_password, .init = setup_database, .fini = cleanup_database) {
+Test(database, add_password, .init = setup_database_test, .fini = cleanup_database) {
     printf("[TEST] Ajout d'un mot de passe\n");
     fflush(stdout);
     
@@ -82,7 +82,7 @@ Test(database, add_password, .init = setup_database, .fini = cleanup_database) {
     db_close(&db);
 }
 
-Test(database, get_password_by_id, .init = setup_database, .fini = cleanup_database) {
+Test(database, get_password_by_id, .init = setup_database_test, .fini = cleanup_database) {
     printf("[TEST] Récupération d'un mot de passe par ID\n");
     fflush(stdout);
     
@@ -103,7 +103,7 @@ Test(database, get_password_by_id, .init = setup_database, .fini = cleanup_datab
     db_close(&db);
 }
 
-Test(database, get_all_passwords, .init = setup_database, .fini = cleanup_database) {
+Test(database, get_all_passwords, .init = setup_database_test, .fini = cleanup_database) {
     printf("[TEST] Récupération de tous les mots de passe\n");
     fflush(stdout);
     
@@ -127,7 +127,7 @@ Test(database, get_all_passwords, .init = setup_database, .fini = cleanup_databa
     db_close(&db);
 }
 
-Test(database, update_password, .init = setup_database, .fini = cleanup_database) {
+Test(database, update_password, .init = setup_database_test, .fini = cleanup_database) {
     printf("[TEST] Mise à jour d'un mot de passe\n");
     fflush(stdout);
     
@@ -149,7 +149,7 @@ Test(database, update_password, .init = setup_database, .fini = cleanup_database
     db_close(&db);
 }
 
-Test(database, delete_password, .init = setup_database, .fini = cleanup_database) {
+Test(database, delete_password, .init = setup_database_test, .fini = cleanup_database) {
     printf("[TEST] Suppression d'un mot de passe\n");
     fflush(stdout);
     
@@ -169,7 +169,7 @@ Test(database, delete_password, .init = setup_database, .fini = cleanup_database
     db_close(&db);
 }
 
-Test(database, update_2fa, .init = setup_database, .fini = cleanup_database) {
+Test(database, update_2fa, .init = setup_database_test, .fini = cleanup_database) {
     printf("[TEST] Mise à jour de la 2FA\n");
     fflush(stdout);
     
@@ -187,7 +187,7 @@ Test(database, update_2fa, .init = setup_database, .fini = cleanup_database) {
     db_close(&db);
 }
 
-Test(database, log_attempt, .init = setup_database, .fini = cleanup_database) {
+Test(database, log_attempt, .init = setup_database_test, .fini = cleanup_database) {
     printf("[TEST] Logging des tentatives de connexion\n");
     fflush(stdout);
     
@@ -200,7 +200,7 @@ Test(database, log_attempt, .init = setup_database, .fini = cleanup_database) {
     db_close(&db);
 }
 
-Test(database, failed_attempts_count, .init = setup_database, .fini = cleanup_database) {
+Test(database, failed_attempts_count, .init = setup_database_test, .fini = cleanup_database) {
     printf("[TEST] Comptage des tentatives échouées\n");
     fflush(stdout);
     
@@ -218,7 +218,7 @@ Test(database, failed_attempts_count, .init = setup_database, .fini = cleanup_da
     db_close(&db);
 }
 
-Test(database, add_password_encrypted, .init = setup_database, .fini = cleanup_database) {
+Test(database, add_password_encrypted, .init = setup_database_test, .fini = cleanup_database) {
     printf("[TEST] Ajout de mot de passe avec chiffrement automatique\n");
     fflush(stdout);
     
@@ -234,7 +234,7 @@ Test(database, add_password_encrypted, .init = setup_database, .fini = cleanup_d
     db_close(&db);
 }
 
-Test(database, get_password_decrypted, .init = setup_database, .fini = cleanup_database) {
+Test(database, get_password_decrypted, .init = setup_database_test, .fini = cleanup_database) {
     printf("[TEST] Récupération de mot de passe avec déchiffrement\n");
     fflush(stdout);
     

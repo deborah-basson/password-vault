@@ -18,8 +18,8 @@
     <div class="container">
         <header>
             <h1>🔐 Coffre-fort Sécurisé</h1>
+            <p class="subtitle">Gestionnaire de mots de passe avec historique et sécurité renforcée</p>
         </header>
-
 
         <!-- Écran d'inscription -->
         <div id="register-screen" class="screen">
@@ -60,14 +60,30 @@
                     <button type="submit" class="btn btn-primary">Se connecter</button>
                 </form>
 
-                <!-- AJOUT: Lien mot de passe oublié -->
                 <div style="margin-top: 20px; text-align: center;">
                     <button onclick="showForgotPassword()" class="btn btn-secondary">🔓 Mot de passe oublié ?</button>
                 </div>
             </div>
         </div>
 
-        <!-- NOUVEL ÉCRAN: Mot de passe oublié -->
+        <!-- Écran de verrouillage -->
+        <div id="lock-screen" class="screen hidden">
+            <div class="card">
+                <h2>🔒 Application verrouillée</h2>
+                <p class="info">Pour des raisons de sécurité, l'application s'est verrouillée automatiquement.</p>
+                
+                <form id="unlock-form" autocomplete="off">
+                    <div class="form-group">
+                        <label>Mot de passe principal</label>
+                        <input type="password" id="unlock-password" required autocomplete="current-password">
+                    </div>
+                    
+                    <button type="submit" class="btn btn-primary">🔓 Déverrouiller</button>
+                </form>
+            </div>
+        </div>
+
+        <!-- Écran mot de passe oublié -->
         <div id="forgot-password-screen" class="screen hidden">
             <div class="card">
                 <h2>🔓 Récupération du compte</h2>
@@ -75,7 +91,6 @@
                 
                 <form id="forgot-password-form" autocomplete="off">
                     <div id="security-questions-container">
-                        <!-- Les questions seront chargées dynamiquement -->
                         <div class="loading">Chargement des questions de sécurité...</div>
                     </div>
                     
@@ -93,7 +108,7 @@
             </div>
         </div>
 
-        <!-- NOUVEL ÉCRAN: Réinitialisation du mot de passe -->
+        <!-- Écran réinitialisation mot de passe -->
         <div id="reset-password-screen" class="screen hidden">
             <div class="card">
                 <h2>🔄 Réinitialiser le mot de passe</h2>
@@ -125,7 +140,7 @@
                 <p class="info">Ces questions vous permettront de récupérer votre compte si vous oubliez votre mot de passe.</p>
                 
                 <form id="security-questions-form" autocomplete="off">
-                    <!-- Question 1 avec choix prédéfini -->
+                    <!-- Question 1 -->
                     <div class="form-group">
                         <label>Question 1</label>
                         <select id="question1" required onchange="updateQuestionPlaceholder(1)">
@@ -142,7 +157,7 @@
                         <input type="text" id="answer1" required placeholder="Votre réponse">
                     </div>
                     
-                    <!-- Question 2 avec choix prédéfini -->
+                    <!-- Question 2 -->
                     <div class="form-group">
                         <label>Question 2</label>
                         <select id="question2" required onchange="updateQuestionPlaceholder(2)">
@@ -159,7 +174,7 @@
                         <input type="text" id="answer2" required placeholder="Votre réponse">
                     </div>
                     
-                    <!-- Question 3 avec choix prédéfini -->
+                    <!-- Question 3 -->
                     <div class="form-group">
                         <label>Question 3</label>
                         <select id="question3" required onchange="updateQuestionPlaceholder(3)">
@@ -200,7 +215,6 @@
             </div>
         </div>
 
-
         <!-- Dashboard principal -->
         <div id="dashboard-screen" class="screen hidden">
             <div class="dashboard-header">
@@ -212,7 +226,7 @@
                 </div>
             </div>
 
-            <!-- AJOUT: Section Alertes de Sécurité -->
+            <!-- Section Alertes de Sécurité -->
             <div class="security-alerts-section">
                 <h3>🔒 Alertes de Sécurité</h3>
                 
@@ -286,6 +300,52 @@
             </div>
         </div>
 
+        <!-- Modal de modification -->
+        <div id="edit-modal" class="modal hidden">
+            <div class="modal-content">
+                <span class="close" onclick="closeEditModal()">&times;</span>
+                <h2>✏️ Modifier le mot de passe</h2>
+                
+                <form onsubmit="updatePassword(); return false;" autocomplete="off">
+                    <input type="hidden" id="edit-password-id">
+                    
+                    <div class="form-group">
+                        <label>Site web</label>
+                        <input type="text" id="edit-website" readonly>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label>Nom d'utilisateur</label>
+                        <input type="text" id="edit-username" readonly>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label>Nouveau mot de passe</label>
+                        <div class="password-input-group">
+                            <input type="password" id="edit-new-password" required autocomplete="new-password">
+                            <button type="button" onclick="togglePassword('edit-new-password')" title="Afficher">👁️</button>
+                            <button type="button" onclick="autoGeneratePasswordForEdit()" title="Générer">🎲</button>
+                        </div>
+                        <div class="password-strength" id="edit-strength-bar"></div>
+                    </div>
+                    
+                    <button type="submit" class="btn btn-primary">💾 Mettre à jour</button>
+                </form>
+            </div>
+        </div>
+
+        <!-- Modal d'historique -->
+        <div id="history-modal" class="modal hidden">
+            <div class="modal-content">
+                <span class="close" onclick="closeHistoryModal()">&times;</span>
+                <h2>📊 Historique des modifications</h2>
+                
+                <div id="history-list" class="history-container">
+                    <div class="loading">Chargement de l'historique...</div>
+                </div>
+            </div>
+        </div>
+
         <!-- Modal de génération -->
         <div id="generate-modal" class="modal hidden">
             <div class="modal-content">
@@ -307,7 +367,6 @@
             </div>
         </div>
     </div>
-
 
     <div id="notification" class="notification hidden"></div>
 

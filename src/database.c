@@ -1,3 +1,4 @@
+#include "../include/config.h"
 #include "../include/database.h"
 #include <stdio.h>
 #include <string.h>

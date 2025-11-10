@@ -24,6 +24,7 @@ SOURCES = $(SRC_DIR)/api_server.c \
           $(SRC_DIR)/session.c \
           $(SRC_DIR)/database_security.c \
           $(SRC_DIR)/security_questions.c \
+		  $(SRC_DIR)/password_history.c
 
 OBJECTS = $(SOURCES:$(SRC_DIR)/%.c=$(BUILD_DIR)/%.o)
 EXECUTABLE = password_vault
@@ -34,6 +35,7 @@ TEST_OBJ_DEPS = $(BUILD_DIR)/database.o \
                 $(BUILD_DIR)/session.o \
                 $(BUILD_DIR)/database_security.o \
                 $(BUILD_DIR)/security_questions.o \
+				$(SRC_DIR)/password_history.o
 
 RED = \033[0;31m
 GREEN = \033[0;32m

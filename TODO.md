@@ -160,8 +160,7 @@ This document tracks completed features and remaining enhancements for the Passw
 ## 7. Remaining Enhancements
 
 ### High Priority
-- [ ] Password history tracking
-- [ ] Password expiration warnings
+- [x] Password history tracking
 - [ ] Import/export functionality (encrypted)
 - [ ] Password sharing between users
 - [x] Audit log viewer in UI
@@ -170,7 +169,7 @@ This document tracks completed features and remaining enhancements for the Passw
 ### Medium Priority
 - [ ] Browser extension integration
 - [ ] Mobile app
-- [ ] Backup/restore functionality
+- [x] Restore Password
 - [x] Password generator in UI
 - [x] Auto-lock after inactivity
 - [ ] Biometric authentication support
@@ -179,7 +178,7 @@ This document tracks completed features and remaining enhancements for the Passw
 - [ ] Dark mode theme
 - [ ] Multi-language support
 - [ ] Password breach checking
-- [ ] Secure notes storage
+- [x] Secure notes storage
 - [ ] File attachment storage
 - [ ] Tags and categories
 - [ ] Advanced search filters
