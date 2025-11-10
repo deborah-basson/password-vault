@@ -18,20 +18,22 @@ void session_init() {
     printf("✓ Gestionnaire de sessions initialisé\n");
 }
 
+// Fonction originale sans master key
 Session* session_create(int user_id) {
     return session_create_with_key(user_id, NULL);
 }
 
+// Fonction avec master key - UNE SEULE DÉFINITION
 Session* session_create_with_key(int user_id, const char *master_password) {
     pthread_mutex_lock(&session_mutex);
     
     for (int i = 0; i < MAX_CLIENTS; i++) {
         if (!active_sessions[i].active) {
             generate_secure_password(active_sessions[i].token, 64);
-            
             generate_secure_password(active_sessions[i].csrf_token, 64);
             
             if (master_password) {
+                // Stocker temporairement pour déchiffrement
                 strncpy(active_sessions[i].master_key, master_password, 
                        sizeof(active_sessions[i].master_key) - 1);
                 active_sessions[i].master_key[sizeof(active_sessions[i].master_key) - 1] = '\0';
@@ -66,6 +68,8 @@ Session* session_get(const char *token) {
             strcmp(active_sessions[i].token, token) == 0) {
             
             if (now - active_sessions[i].last_used > SESSION_TIMEOUT) {
+                // NETTOYAGE SÉCURISÉ à l'expiration
+                secure_zero_memory(active_sessions[i].master_key, sizeof(active_sessions[i].master_key));
                 active_sessions[i].active = 0;
                 secure_zero_memory(&active_sessions[i], sizeof(Session));
                 pthread_mutex_unlock(&session_mutex);
@@ -90,9 +94,11 @@ void session_destroy(const char *token) {
     for (int i = 0; i < MAX_CLIENTS; i++) {
         if (active_sessions[i].active && 
             strcmp(active_sessions[i].token, token) == 0) {
+            // NETTOYAGE SÉCURISÉ avant destruction
+            secure_zero_memory(active_sessions[i].master_key, sizeof(active_sessions[i].master_key));
             active_sessions[i].active = 0;
             secure_zero_memory(&active_sessions[i], sizeof(Session));
-            printf("✓ Session détruite\n");
+            printf("✓ Session détruite (mémoire nettoyée)\n");
             break;
         }
     }
@@ -108,6 +114,8 @@ void session_cleanup_expired() {
     for (int i = 0; i < MAX_CLIENTS; i++) {
         if (active_sessions[i].active && 
             now - active_sessions[i].last_used > SESSION_TIMEOUT) {
+            // NETTOYAGE SÉCURISÉ des sessions expirées
+            secure_zero_memory(active_sessions[i].master_key, sizeof(active_sessions[i].master_key));
             active_sessions[i].active = 0;
             secure_zero_memory(&active_sessions[i], sizeof(Session));
             cleaned++;
@@ -121,11 +129,30 @@ void session_cleanup_expired() {
     }
 }
 
+//: Nettoyage complet de toutes les sessions
+void session_cleanup_all() {
+    pthread_mutex_lock(&session_mutex);
+    int cleaned = 0;
+    
+    for (int i = 0; i < MAX_CLIENTS; i++) {
+        if (active_sessions[i].active) {
+            // NETTOYAGE SÉCURISÉ de toutes les sessions
+            secure_zero_memory(active_sessions[i].master_key, sizeof(active_sessions[i].master_key));
+            active_sessions[i].active = 0;
+            secure_zero_memory(&active_sessions[i], sizeof(Session));
+            cleaned++;
+        }
+    }
+    
+    pthread_mutex_unlock(&session_mutex);
+    printf("✓ Toutes les sessions nettoyées (%d sessions)\n", cleaned);
+}
+
 void* session_cleanup_thread(void *arg) {
     (void)arg;
     
     while (1) {
-        sleep(300); 
+        sleep(300); // Vérifie toutes les 5 minutes
         session_cleanup_expired();
     }
     

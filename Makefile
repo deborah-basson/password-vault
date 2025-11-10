@@ -1,5 +1,5 @@
 # ============================================
-# MAKEFILE - PASSWORD VAULT
+# MAKEFILE - PASSWORD VAULT (HTTPS UNIQUEMENT)
 # ============================================
 
 CC = gcc
@@ -17,7 +17,6 @@ TEST_EXEC = run_tests
 TEST_SOURCES = $(wildcard $(TEST_DIR)/*.c)
 TEST_OBJECTS = $(TEST_SOURCES:$(TEST_DIR)/%.c=$(TEST_BUILD_DIR)/%.o)
 TEST_LDFLAGS = -lcriterion $(LDFLAGS)
-CRITERION_OPTS = --jobs=1
 
 SOURCES = $(SRC_DIR)/api_server.c \
           $(SRC_DIR)/database.c \
@@ -40,7 +39,7 @@ NC = \033[0m
 
 all: setup $(EXECUTABLE)
 	@echo "$(GREEN)✓ Compilation réussie!$(NC)"
-	@echo "$(BLUE)→ Lancez avec: make run$(NC)"
+	@echo "$(BLUE)→ Lancez avec: make run (HTTPS)$(NC)"
 
 setup:
 	@mkdir -p $(BUILD_DIR)
@@ -86,13 +85,9 @@ reset:
 clean-all: reset
 
 run: kill all ssl-check
-	@echo "$(GREEN)🚀 Démarrage du serveur...$(NC)"
+	@echo "$(GREEN)🚀 Démarrage du serveur HTTPS...$(NC)"
 	@echo ""
 	@./$(EXECUTABLE)
-
-run-dev: kill all
-	@echo "$(YELLOW)⚠️  Mode développement (HTTP sans SSL)$(NC)"
-	@./$(EXECUTABLE) --no-ssl
 
 install:
 	@echo "$(BLUE)→ Installation des dépendances...$(NC)"
@@ -137,7 +132,6 @@ $(TEST_BUILD_DIR)/%.o: $(TEST_DIR)/%.c | setup
 $(TEST_EXEC): $(TEST_OBJECTS_DEPS) $(TEST_OBJECTS) | setup
 	@echo "$(BLUE)→ Compilation des tests...$(NC)"
 	@$(CC) $(TEST_OBJECTS_DEPS) $(TEST_OBJECTS) $(TEST_LDFLAGS) -DTEST_BUILD -o $@
-CRITERION_OPTS = --jobs=1
 
 test: setup $(TEST_EXEC)
 	@echo "$(BLUE)→ Nettoyage de la base de données de test...$(NC)"
@@ -154,7 +148,7 @@ status:
 	@echo "$(BLUE)║        📊 ÉTAT DU SYSTÈME 📊          ║$(NC)"
 	@echo "$(BLUE)╠════════════════════════════════════════╣$(NC)"
 	@ps aux | grep $(EXECUTABLE) | grep -v grep >/dev/null && \
-		echo "$(BLUE)║$(NC) 🟢 Serveur: $(GREEN)ACTIF$(NC)                      $(BLUE)║$(NC)" || \
+		echo "$(BLUE)║$(NC) 🟢 Serveur: $(GREEN)ACTIF (HTTPS)$(NC)            $(BLUE)║$(NC)" || \
 		echo "$(BLUE)║$(NC) ⚫ Serveur: $(RED)ARRÊTÉ$(NC)                     $(BLUE)║$(NC)"
 	@if [ -f /tmp/vault.db ]; then \
 		USERS=$$(sqlite3 /tmp/vault.db "SELECT COUNT(*) FROM users;" 2>/dev/null); \
@@ -166,7 +160,7 @@ status:
 		echo "$(BLUE)║$(NC) ⚫ Base de données: $(YELLOW)NON CRÉÉE$(NC)        $(BLUE)║$(NC)"; \
 	fi
 	@netstat -tuln 2>/dev/null | grep 8443 >/dev/null && \
-		echo "$(BLUE)║$(NC) 🟢 Port 8443: $(GREEN)ACTIF$(NC)                   $(BLUE)║$(NC)" || \
+		echo "$(BLUE)║$(NC) 🟢 Port 8443: $(GREEN)ACTIF (HTTPS)$(NC)          $(BLUE)║$(NC)" || \
 		echo "$(BLUE)║$(NC) ⚫ Port 8443: $(YELLOW)LIBRE$(NC)                   $(BLUE)║$(NC)"
 	@echo "$(BLUE)╚════════════════════════════════════════╝$(NC)"
 
@@ -175,7 +169,6 @@ help:
 	@echo "$(BLUE)║    🔐 PASSWORD VAULT - Commandes 🔐           ║$(NC)"
 	@echo "$(BLUE)╠════════════════════════════════════════════════╣$(NC)"
 	@echo "$(BLUE)║$(NC) make run       - Lancer le serveur (HTTPS)     $(BLUE)║$(NC)"
-	@echo "$(BLUE)║$(NC) make run-dev   - Lancer en mode dev (HTTP)     $(BLUE)║$(NC)"
 	@echo "$(BLUE)║$(NC) make test      - Exécuter les tests            $(BLUE)║$(NC)"
 	@echo "$(BLUE)║$(NC) make clean     - Nettoyer (garde la BD)        $(BLUE)║$(NC)"
 	@echo "$(BLUE)║$(NC) make reset     - TOUT réinitialiser 💥         $(BLUE)║$(NC)"

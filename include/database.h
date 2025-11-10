@@ -50,7 +50,7 @@ int db_get_password_decrypted(Database *db, int id, PasswordEntry *entry,
 
 int db_log_attempt(Database *db, const char *action, int success, const char *ip);
 int db_get_failed_attempts(Database *db, const char *ip, int minutes);
-
+int db_get_password_decrypted(Database *db, int id, PasswordEntry *entry, const char *master_key);
 int db_load_dev_data(Database *db);
 int db_execute_migration(Database *db, const char *migration_file);
 

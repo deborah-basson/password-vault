@@ -1,3 +1,22 @@
+/* Désactiver l'autofill des navigateurs */
+input:-webkit-autofill,
+input:-webkit-autofill:hover, 
+input:-webkit-autofill:focus,
+input:-webkit-autofill:active {
+    -webkit-box-shadow: 0 0 0 1000px var(--bg-card) inset !important;
+    -webkit-text-fill-color: var(--text) !important;
+    transition: background-color 5000s ease-in-out 0s;
+}
+
+/* Cache control */
+.no-cache {
+    animation-duration: 0.01s;
+    animation-name: ins;
+}
+@keyframes ins { 
+    from { opacity: 0.9; } to { opacity: 1; } 
+}
+
 * {
     margin: 0;
     padding: 0;
@@ -395,6 +414,33 @@ small {
     font-size: 1.2rem;
     color: var(--success);
     font-family: 'Courier New', monospace;
+}
+
+.security-stats {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 20px;
+    margin: 25px 0;
+}
+
+.stat-card {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 20px;
+    text-align: center;
+}
+
+.stat-card h3 {
+    font-size: 0.9rem;
+    color: var(--text-muted);
+    margin-bottom: 10px;
+}
+
+.stat-value {
+    font-size: 2rem;
+    font-weight: bold;
+    color: var(--primary);
 }
 
 .notification {

@@ -164,19 +164,20 @@ This document tracks completed features and remaining enhancements for the Passw
 - [ ] Password expiration warnings
 - [ ] Import/export functionality (encrypted)
 - [ ] Password sharing between users
-- [ ] Audit log viewer in UI
+- [x] Audit log viewer in UI
+- [x] Prevent 2 tabs from being open in the same session
 
 ### Medium Priority
 - [ ] Browser extension integration
 - [ ] Mobile app
 - [ ] Backup/restore functionality
-- [ ] Password generator in UI
-- [ ] Auto-lock after inactivity
+- [x] Password generator in UI
+- [x] Auto-lock after inactivity
 - [ ] Biometric authentication support
 
 ### Low Priority
 - [ ] Dark mode theme
-- [ ] Multi-language support
+- [x] Multi-language support
 - [ ] Password breach checking
 - [ ] Secure notes storage
 - [ ] File attachment storage

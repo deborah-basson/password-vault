@@ -3,16 +3,44 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; script-src 'self' 'unsafe-inline'">
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <meta http-equiv="Pragma" content="no-cache">
+    <meta http-equiv="Expires" content="0">
+    <meta name="robots" content="noindex, nofollow">
+    <meta name="google" content="notranslate">
+    <meta name="referrer" content="no-referrer">
+    <meta name="format-detection" content="telephone=no">
     <title>🔐 Coffre-fort de Mots de Passe</title>
     <link rel="stylesheet" href="/style.css">
 </head>
-<body>
+    <body class="no-cache">
     <div class="container">
         <header>
             <h1>🔐 Coffre-fort Sécurisé</h1>
             <p class="subtitle">Chiffrement AES-256 • 2FA TOTP • Protection OWASP Top 10</p>
         </header>
+
+        <!-- Écran de verrouillage -->
+        <div id="lock-screen" class="screen hidden">
+            <div class="card">
+                <h2>🔒 Application Verrouillée</h2>
+                <p class="info">Pour des raisons de sécurité, l'application s'est verrouillée automatiquement.</p>
+                
+                <form id="unlock-form">
+                    <div class="form-group">
+                        <label>Mot de passe principal</label>
+                        <input type="password" id="unlock-password" required autocomplete="current-password">
+                    </div>
+                    
+                    <button type="submit" class="btn btn-primary">🔓 Déverrouiller</button>
+                </form>
+                
+                <div style="margin-top: 20px; text-align: center;">
+                    <button onclick="logout()" class="btn btn-secondary">🚪 Déconnexion complète</button>
+                </div>
+            </div>
+        </div>
 
         <!-- Écran d'inscription -->
         <div id="register-screen" class="screen">
@@ -83,9 +111,9 @@
             <div class="dashboard-header">
                 <h2>📚 Mes mots de passe</h2>
                 <div class="actions">
-                    <button onclick="showAddPassword()" class="btn btn-primary">➕ Ajouter</button>
-                    <button onclick="generatePasswordPopup()" class="btn btn-secondary">🎲 Générer</button>
-                    <button onclick="logout()" class="btn btn-danger">🚪 Déconnexion</button>
+                    <button id="btn-add" onclick="showAddPassword()" class="btn btn-primary">➕ Ajouter</button>
+                    <button id="btn-generate" onclick="generatePasswordPopup()" class="btn btn-secondary">🎲 Générer</button>
+                    <button id="btn-logout" onclick="logout()" class="btn btn-danger">🚪 Déconnexion</button>
                 </div>
             </div>
 
@@ -154,6 +182,30 @@
                 
                 <button onclick="generateNewPassword()" class="btn btn-secondary">🔄 Régénérer</button>
             </div>
+        </div>
+    </div>
+
+        <!-- Nouvel écran de rapports de sécurité -->
+    <div id="security-reports-screen" class="screen hidden">
+        <div class="card">
+            <h2>📊 Rapports de Sécurité</h2>
+            
+            <div class="security-stats">
+                <div class="stat-card">
+                    <h3>Événements Critiques (7j)</h3>
+                    <div class="stat-value" id="critical-events">0</div>
+                </div>
+                <div class="stat-card">
+                    <h3>Mots de passe Expirés</h3>
+                    <div class="stat-value" id="expired-passwords">0</div>
+                </div>
+                <div class="stat-card">
+                    <h3>Échecs Connexion (24h)</h3>
+                    <div class="stat-value" id="failed-logins">0</div>
+                </div>
+            </div>
+            
+            <button onclick="showDashboard()" class="btn btn-secondary">← Retour</button>
         </div>
     </div>
 
