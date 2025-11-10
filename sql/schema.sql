@@ -149,6 +149,23 @@ CREATE TABLE IF NOT EXISTS security_policies (
     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );
 
+-- Table des questions de sécurité
+CREATE TABLE IF NOT EXISTS security_questions (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER DEFAULT 1,
+    question1 TEXT NOT NULL,
+    answer1_hash TEXT NOT NULL,
+    question2 TEXT NOT NULL,
+    answer2_hash TEXT NOT NULL,
+    question3 TEXT NOT NULL,
+    answer3_hash TEXT NOT NULL,
+    recovery_code TEXT NOT NULL,
+    recovery_attempts INTEGER DEFAULT 0,
+    locked_until DATETIME,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+);
+
 -- ==================== INDEX POUR LES NOUVELLES TABLES ====================
 
 CREATE INDEX IF NOT EXISTS idx_password_history 
