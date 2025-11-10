@@ -177,7 +177,7 @@ This document tracks completed features and remaining enhancements for the Passw
 
 ### Low Priority
 - [ ] Dark mode theme
-- [x] Multi-language support
+- [ ] Multi-language support
 - [ ] Password breach checking
 - [ ] Secure notes storage
 - [ ] File attachment storage

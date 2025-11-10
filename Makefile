@@ -21,13 +21,19 @@ TEST_LDFLAGS = -lcriterion $(LDFLAGS)
 SOURCES = $(SRC_DIR)/api_server.c \
           $(SRC_DIR)/database.c \
           $(SRC_DIR)/crypto.c \
-          $(SRC_DIR)/session.c
+          $(SRC_DIR)/session.c \
+          $(SRC_DIR)/database_security.c \
+          $(SRC_DIR)/security_questions.c \
 
 OBJECTS = $(SOURCES:$(SRC_DIR)/%.c=$(BUILD_DIR)/%.o)
 EXECUTABLE = password_vault
 
-MAIN_SOURCES = $(SRC_DIR)/api_server.c
-TEST_OBJECTS_DEPS = $(filter-out $(MAIN_SOURCES:$(SRC_DIR)/%.c=$(BUILD_DIR)/%.o),$(OBJECTS))
+# Fichiers objets pour les tests (exclut api_server.c qui a main())
+TEST_OBJ_DEPS = $(BUILD_DIR)/database.o \
+                $(BUILD_DIR)/crypto.o \
+                $(BUILD_DIR)/session.o \
+                $(BUILD_DIR)/database_security.o \
+                $(BUILD_DIR)/security_questions.o \
 
 RED = \033[0;31m
 GREEN = \033[0;32m
@@ -127,11 +133,11 @@ ssl-check:
 	fi
 
 $(TEST_BUILD_DIR)/%.o: $(TEST_DIR)/%.c | setup
-	@$(CC) $(CFLAGS) -I$(INCLUDE_DIR) -DTEST_BUILD -c $< -o $@
+	@$(CC) $(CFLAGS) -I$(INCLUDE_DIR) -c $< -o $@
 
-$(TEST_EXEC): $(TEST_OBJECTS_DEPS) $(TEST_OBJECTS) | setup
+$(TEST_EXEC): $(TEST_OBJ_DEPS) $(TEST_OBJECTS)
 	@echo "$(BLUE)→ Compilation des tests...$(NC)"
-	@$(CC) $(TEST_OBJECTS_DEPS) $(TEST_OBJECTS) $(TEST_LDFLAGS) -DTEST_BUILD -o $@
+	@$(CC) $(TEST_OBJ_DEPS) $(TEST_OBJECTS) $(TEST_LDFLAGS) -o $@
 
 test: setup $(TEST_EXEC)
 	@echo "$(BLUE)→ Nettoyage de la base de données de test...$(NC)"
@@ -170,6 +176,7 @@ help:
 	@echo "$(BLUE)╠════════════════════════════════════════════════╣$(NC)"
 	@echo "$(BLUE)║$(NC) make run       - Lancer le serveur (HTTPS)     $(BLUE)║$(NC)"
 	@echo "$(BLUE)║$(NC) make test      - Exécuter les tests            $(BLUE)║$(NC)"
+	@echo "$(BLUE)║$(NC) make security-test - Tests de sécurité        $(BLUE)║$(NC)"
 	@echo "$(BLUE)║$(NC) make clean     - Nettoyer (garde la BD)        $(BLUE)║$(NC)"
 	@echo "$(BLUE)║$(NC) make reset     - TOUT réinitialiser 💥         $(BLUE)║$(NC)"
 	@echo "$(BLUE)║$(NC) make kill      - Tuer les processus            $(BLUE)║$(NC)"

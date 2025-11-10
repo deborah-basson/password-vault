@@ -14,33 +14,12 @@
     <title>🔐 Coffre-fort de Mots de Passe</title>
     <link rel="stylesheet" href="/style.css">
 </head>
-    <body class="no-cache">
+<body class="no-cache">
     <div class="container">
         <header>
             <h1>🔐 Coffre-fort Sécurisé</h1>
-            <p class="subtitle">Chiffrement AES-256 • 2FA TOTP • Protection OWASP Top 10</p>
         </header>
 
-        <!-- Écran de verrouillage -->
-        <div id="lock-screen" class="screen hidden">
-            <div class="card">
-                <h2>🔒 Application Verrouillée</h2>
-                <p class="info">Pour des raisons de sécurité, l'application s'est verrouillée automatiquement.</p>
-                
-                <form id="unlock-form">
-                    <div class="form-group">
-                        <label>Mot de passe principal</label>
-                        <input type="password" id="unlock-password" required autocomplete="current-password">
-                    </div>
-                    
-                    <button type="submit" class="btn btn-primary">🔓 Déverrouiller</button>
-                </form>
-                
-                <div style="margin-top: 20px; text-align: center;">
-                    <button onclick="logout()" class="btn btn-secondary">🚪 Déconnexion complète</button>
-                </div>
-            </div>
-        </div>
 
         <!-- Écran d'inscription -->
         <div id="register-screen" class="screen">
@@ -48,45 +27,22 @@
                 <h2>Créer votre coffre-fort</h2>
                 <p class="info">Ce mot de passe chiffrera tous vos autres mots de passe.</p>
                 
-                <form id="register-form">
+                <form id="register-form" autocomplete="off">
                     <div class="form-group">
                         <label>Mot de passe principal</label>
                         <input type="password" id="register-password" required 
-                               placeholder="Minimum 12 caractères">
+                               placeholder="Minimum 12 caractères" autocomplete="new-password">
                         <div class="password-strength" id="strength-bar"></div>
                         <small id="strength-text"></small>
                     </div>
                     
                     <div class="form-group">
                         <label>Confirmer le mot de passe</label>
-                        <input type="password" id="register-confirm" required>
+                        <input type="password" id="register-confirm" required autocomplete="new-password">
                     </div>
                     
                     <button type="submit" class="btn btn-primary">Créer le coffre</button>
                 </form>
-            </div>
-        </div>
-
-        <!-- Écran 2FA Setup -->
-        <div id="totp-setup-screen" class="screen hidden">
-            <div class="card">
-                <h2>⚙️ Configuration 2FA (TOTP)</h2>
-                <p>Scannez ce QR code avec <strong>Google Authenticator</strong> ou <strong>Authy</strong></p>
-                
-                <div id="qr-code" class="qr-container"></div>
-                
-                <div class="totp-manual">
-                    <p><strong>Ou configurez manuellement :</strong></p>
-                    <code id="totp-secret">XXXX XXXX XXXX XXXX</code>
-                    <button onclick="copyToClipboard('totp-secret')" class="btn-copy">📋 Copier</button>
-                </div>
-                
-                <div class="warning-box">
-                    <strong>⚠️ Important :</strong> Sauvegardez ce code dans un endroit sûr. 
-                    Sans lui, vous ne pourrez plus accéder à votre coffre !
-                </div>
-                
-                <button id="btn-continue-2fa" class="btn btn-primary">J'ai configuré mon 2FA →</button>
             </div>
         </div>
 
@@ -95,14 +51,152 @@
             <div class="card">
                 <h2>🔓 Déverrouiller le coffre</h2>
                 
-                <form id="login-form">
+                <form id="login-form" autocomplete="off">
                     <div class="form-group">
                         <label>Mot de passe principal</label>
                         <input type="password" id="login-password" required autocomplete="current-password">
                     </div>
                     
                     <button type="submit" class="btn btn-primary">Se connecter</button>
-                </form>  <!-- ← AJOUTEZ CETTE LIGNE -->
+                </form>
+
+                <!-- AJOUT: Lien mot de passe oublié -->
+                <div style="margin-top: 20px; text-align: center;">
+                    <button onclick="showForgotPassword()" class="btn btn-secondary">🔓 Mot de passe oublié ?</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- NOUVEL ÉCRAN: Mot de passe oublié -->
+        <div id="forgot-password-screen" class="screen hidden">
+            <div class="card">
+                <h2>🔓 Récupération du compte</h2>
+                <p class="info">Répondez à vos questions de sécurité OU utilisez votre code de récupération.</p>
+                
+                <form id="forgot-password-form" autocomplete="off">
+                    <div id="security-questions-container">
+                        <!-- Les questions seront chargées dynamiquement -->
+                        <div class="loading">Chargement des questions de sécurité...</div>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label>Code de récupération (alternative)</label>
+                        <input type="text" id="recovery-code-input" placeholder="Entrez votre code de récupération à 8 caractères">
+                        <small>Alternative si vous ne pouvez pas répondre aux questions</small>
+                    </div>
+                    
+                    <button type="submit" class="btn btn-primary">Vérifier l'accès</button>
+                    <button type="button" onclick="showLoginScreen()" class="btn btn-secondary" style="margin-top: 10px; width: 100%;">
+                        ← Retour à la connexion
+                    </button>
+                </form>
+            </div>
+        </div>
+
+        <!-- NOUVEL ÉCRAN: Réinitialisation du mot de passe -->
+        <div id="reset-password-screen" class="screen hidden">
+            <div class="card">
+                <h2>🔄 Réinitialiser le mot de passe</h2>
+                <p class="info">Choisissez un nouveau mot de passe principal sécurisé.</p>
+                
+                <form id="reset-password-form" autocomplete="off">
+                    <div class="form-group">
+                        <label>Nouveau mot de passe principal</label>
+                        <input type="password" id="reset-password" required 
+                            placeholder="Minimum 12 caractères" autocomplete="new-password">
+                        <div class="password-strength" id="reset-strength-bar"></div>
+                        <small id="reset-strength-text"></small>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label>Confirmer le nouveau mot de passe</label>
+                        <input type="password" id="reset-confirm" required autocomplete="new-password">
+                    </div>
+                    
+                    <button type="submit" class="btn btn-primary">🔐 Réinitialiser le mot de passe</button>
+                </form>
+            </div>
+        </div>
+
+        <!-- Écran Questions de Sécurité -->
+        <div id="security-questions-screen" class="screen hidden">
+            <div class="card">
+                <h2>🔐 Questions de Sécurité</h2>
+                <p class="info">Ces questions vous permettront de récupérer votre compte si vous oubliez votre mot de passe.</p>
+                
+                <form id="security-questions-form" autocomplete="off">
+                    <!-- Question 1 avec choix prédéfini -->
+                    <div class="form-group">
+                        <label>Question 1</label>
+                        <select id="question1" required onchange="updateQuestionPlaceholder(1)">
+                            <option value="">Choisissez une question...</option>
+                            <option value="Quel est le nom de votre ville de naissance ?">Quel est le nom de votre ville de naissance ?</option>
+                            <option value="Quel est le nom de votre premier animal de compagnie ?">Quel est le nom de votre premier animal de compagnie ?</option>
+                            <option value="Quel est le nom de votre école primaire ?">Quel est le nom de votre école primaire ?</option>
+                            <option value="Quel est le deuxième prénom de votre mère ?">Quel est le deuxième prénom de votre mère ?</option>
+                            <option value="Quel est le métier de votre père ?">Quel est le métier de votre père ?</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Réponse 1</label>
+                        <input type="text" id="answer1" required placeholder="Votre réponse">
+                    </div>
+                    
+                    <!-- Question 2 avec choix prédéfini -->
+                    <div class="form-group">
+                        <label>Question 2</label>
+                        <select id="question2" required onchange="updateQuestionPlaceholder(2)">
+                            <option value="">Choisissez une question...</option>
+                            <option value="Quel est votre plat préféré ?">Quel est votre plat préféré ?</option>
+                            <option value="Quel est le nom de votre meilleur ami d'enfance ?">Quel est le nom de votre meilleur ami d'enfance ?</option>
+                            <option value="Quel est votre film préféré ?">Quel est votre film préféré ?</option>
+                            <option value="Quel est le modèle de votre première voiture ?">Quel est le modèle de votre première voiture ?</option>
+                            <option value="Quel est le nom de votre professeur préféré ?">Quel est le nom de votre professeur préféré ?</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Réponse 2</label>
+                        <input type="text" id="answer2" required placeholder="Votre réponse">
+                    </div>
+                    
+                    <!-- Question 3 avec choix prédéfini -->
+                    <div class="form-group">
+                        <label>Question 3</label>
+                        <select id="question3" required onchange="updateQuestionPlaceholder(3)">
+                            <option value="">Choisissez une question...</option>
+                            <option value="Quel est le nom de votre série TV préférée ?">Quel est le nom de votre série TV préférée ?</option>
+                            <option value="Quel est votre sport préféré ?">Quel est votre sport préféré ?</option>
+                            <option value="Quel est le nom de votre livre préféré ?">Quel est le nom de votre livre préféré ?</option>
+                            <option value="Quel est votre destination de vacances rêvée ?">Quel est votre destination de vacances rêvée ?</option>
+                            <option value="Quel est le nom de votre artiste musical préféré ?">Quel est le nom de votre artiste musical préféré ?</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Réponse 3</label>
+                        <input type="text" id="answer3" required placeholder="Votre réponse">
+                    </div>
+                    
+                    <button type="submit" class="btn btn-primary">Créer le compte</button>
+                </form>
+            </div>
+        </div>
+
+        <!-- Écran Code de Récupération -->
+        <div id="recovery-code-screen" class="screen hidden">
+            <div class="card">
+                <h2>📋 Code de Récupération</h2>
+                
+                <div class="warning-box">
+                    <strong>⚠️ Important :</strong> Notez ce code dans un endroit sûr ! 
+                    Il vous permettra de récupérer votre compte si vous oubliez votre mot de passe.
+                </div>
+                
+                <div class="recovery-code-display">
+                    <code id="recovery-code-value">XXXXXX</code>
+                    <button type="button" onclick="copyRecoveryCode()" class="btn-copy">📋 Copier</button>
+                </div>
+                
+                <button onclick="finishSetup()" class="btn btn-primary">J'ai noté le code →</button>
             </div>
         </div>
 
@@ -132,7 +226,7 @@
                 <span class="close" onclick="closeModal()">&times;</span>
                 <h2>➕ Ajouter un mot de passe</h2>
                 
-                <form id="add-password-form">
+                <form id="add-password-form" autocomplete="off">
                     <div class="form-group">
                         <label>Site web</label>
                         <input type="text" id="add-website" required placeholder="exemple.com">
@@ -146,9 +240,10 @@
                     <div class="form-group">
                         <label>Mot de passe</label>
                         <div class="password-input-group">
-                            <input type="password" id="add-password" required>
+                            <input type="password" id="add-password" required autocomplete="new-password">
                             <button type="button" onclick="togglePassword('add-password')" title="Afficher">👁️</button>
                             <button type="button" onclick="autoGeneratePassword()" title="Générer">🎲</button>
+                            <button type="button" onclick="generatePassphrase()" title="Générer une phrase de passe">🎲 Phrase</button>
                         </div>
                         <div class="password-strength" id="add-strength-bar"></div>
                     </div>
@@ -185,29 +280,6 @@
         </div>
     </div>
 
-        <!-- Nouvel écran de rapports de sécurité -->
-    <div id="security-reports-screen" class="screen hidden">
-        <div class="card">
-            <h2>📊 Rapports de Sécurité</h2>
-            
-            <div class="security-stats">
-                <div class="stat-card">
-                    <h3>Événements Critiques (7j)</h3>
-                    <div class="stat-value" id="critical-events">0</div>
-                </div>
-                <div class="stat-card">
-                    <h3>Mots de passe Expirés</h3>
-                    <div class="stat-value" id="expired-passwords">0</div>
-                </div>
-                <div class="stat-card">
-                    <h3>Échecs Connexion (24h)</h3>
-                    <div class="stat-value" id="failed-logins">0</div>
-                </div>
-            </div>
-            
-            <button onclick="showDashboard()" class="btn btn-secondary">← Retour</button>
-        </div>
-    </div>
 
     <div id="notification" class="notification hidden"></div>
 

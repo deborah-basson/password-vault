@@ -109,7 +109,7 @@ void db_close(Database *db) {
 }
 
 int db_create_user(Database *db, const char *master_hash, const char *salt, const char *totp_secret) {
-    const char *sql = "INSERT INTO users (master_hash, salt, totp_secret, is_2fa_enabled) VALUES (?, ?, ?, 1)";
+    const char *sql = "INSERT INTO users (master_hash, salt, totp_secret, is_2fa_enabled) VALUES (?, ?, ?, 0)";
     sqlite3_stmt *stmt;
     
     if (sqlite3_prepare_v2(db->db, sql, -1, &stmt, NULL) != SQLITE_OK) {

@@ -126,15 +126,10 @@ make run
 
 The server will start on `https://localhost:8443`
 
-### Development Mode (HTTP)
-```bash
-make run-dev
-```
 
 ### Access Web Interface
 Open your browser and navigate to:
 - Production: `https://localhost:8443`
-- Development: `http://localhost:8080`
 
 ### API Endpoints
 

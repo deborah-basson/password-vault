@@ -29,6 +29,7 @@ input:-webkit-autofill:active {
     --success: #10b981;
     --danger: #ef4444;
     --warning: #f59e0b;
+    --info: #3b82f6;
     --bg: #0f172a;
     --bg-card: #1e293b;
     --text: #f1f5f9;
@@ -207,6 +208,26 @@ small {
 
 .btn-danger:hover {
     background: #dc2626;
+}
+
+.btn-warning {
+    background: var(--warning);
+    color: white;
+}
+
+.btn-warning:hover {
+    background: #d97706;
+}
+
+.btn-info {
+    background: var(--info);
+    color: white;
+}
+
+.btn-info:hover {
+    background: #2563eb;
+    transform: translateY(-2px);
+    box-shadow: 0 5px 15px rgba(59, 130, 246, 0.4);
 }
 
 .qr-container {
