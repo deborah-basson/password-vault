@@ -3,6 +3,7 @@
 #include <string.h>
 #include <sodium.h>
 #include "../include/crypto.h"
+#include "../include/config.h"
 
 Test(crypto_edge, empty_and_null_inputs) {
     printf("[TEST CRYPTO LIMITES] Entrées vides et NULL\n");

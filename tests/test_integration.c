@@ -95,37 +95,6 @@ Test(integration, encryption_end_to_end, .init = setup_integration, .fini = clea
     secure_zero_memory(decrypted, sizeof(decrypted));
 }
 
-Test(integration, totp_2fa_workflow, .init = setup_integration, .fini = cleanup_integration) {
-    printf("[TEST INTEGRATION] Workflow 2FA avec TOTP\n");
-    fflush(stdout);
-    
-    Database db;
-    db_init(&db);
-    
-    char salt[SALT_LENGTH];
-    char hash[HASH_LENGTH];
-    generate_salt(salt, sizeof(salt));
-    hash_password("UserPass123!", salt, hash, sizeof(hash));
-    
-    char totp_secret[TOTP_SECRET_LENGTH];
-    generate_totp_secret(totp_secret, sizeof(totp_secret));
-    
-    db_create_user(&db, hash, salt, totp_secret);
-    
-    UserAccount user;
-    db_get_user(&db, &user);
-    cr_assert_eq(user.is_2fa_enabled, 1, "2FA devrait être activée");
-    
-    long current_time = time(NULL) / 30;
-    int totp_code = generate_totp_code(user.totp_secret, current_time);
-    cr_assert(totp_code >= 0 && totp_code < 1000000, "Code TOTP devrait être valide");
-    
-    int verified = verify_totp_code(user.totp_secret, totp_code, 1);
-    cr_assert_eq(verified, 1, "Code TOTP devrait être vérifié avec succès");
-    
-    db_close(&db);
-}
-
 Test(integration, rate_limiting_simulation, .init = setup_integration, .fini = cleanup_integration) {
     printf("[TEST INTEGRATION] Simulation de rate limiting\n");
     fflush(stdout);

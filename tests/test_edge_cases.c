@@ -4,6 +4,7 @@
 #include <sodium.h>
 #include "../include/crypto.h"
 #include "../include/database.h"
+#include "../include/config.h"
 
 Test(edge_cases, extremely_long_inputs) {
     printf("[TEST LIMITES] Entrées extrêmement longues\n");

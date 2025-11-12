@@ -5,6 +5,7 @@
 #include <time.h>
 #include <sodium.h>
 #include "../include/crypto.h"
+#include "../include/config.h"
 
 Test(crypto, hash_and_verify) {
     printf("[TEST] Hachage et vérification de mot de passe\n");

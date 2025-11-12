@@ -35,7 +35,7 @@ TEST_OBJ_DEPS = $(BUILD_DIR)/database.o \
                 $(BUILD_DIR)/session.o \
                 $(BUILD_DIR)/database_security.o \
                 $(BUILD_DIR)/security_questions.o \
-				$(SRC_DIR)/password_history.o
+				$(BUILD_DIR)/password_history.o
 
 RED = \033[0;31m
 GREEN = \033[0;32m

@@ -1,4 +1,5 @@
 #include "../include/crypto.h"
+#include "../include/config.h"
 #include <sodium.h>
 #include <string.h>
 #include <stdio.h>
