@@ -175,7 +175,7 @@ void* handle_client(void* arg) {
     
     char method[16] = {0};
     char path[256] = {0};
-    sscanf(buffer, "%255s %255s", method, path);
+    sscanf(buffer, "%15s %255s", method, path);
     
     if (strcmp(method, "OPTIONS") == 0) {
         send_response(client->socket, client->ssl, 200, "text/plain", "OK");
