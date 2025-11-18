@@ -175,7 +175,7 @@ void* handle_client(void* arg) {
     
     char method[16] = {0};
     char path[256] = {0};
-    sscanf(buffer, "%s %s", method, path);
+    sscanf(buffer, "%255s %255s", method, path);
     
     if (strcmp(method, "OPTIONS") == 0) {
         send_response(client->socket, client->ssl, 200, "text/plain", "OK");
@@ -753,9 +753,9 @@ void handle_api_request(int socket, SSL *ssl, const char *method, const char *pa
                 send_response(socket, ssl, 401, "application/json", response);
             }
             
-            if (answer1) free(answer1);
-            if (answer2) free(answer2);
-            if (answer3) free(answer3);
+            free(answer1);
+            free(answer2);
+            free(answer3);
             return;
         }
         
@@ -796,14 +796,14 @@ void handle_api_request(int socket, SSL *ssl, const char *method, const char *pa
                 }
                 first = 0;
                 
-                const char *ip = (const char*)sqlite3_column_text(stmt, 0);
+                const char *suspicious_ip = (const char*)sqlite3_column_text(stmt, 0);
                 const char *timestamp = (const char*)sqlite3_column_text(stmt, 1);
                 const char *action = (const char*)sqlite3_column_text(stmt, 2);
                 
                 char log_entry[512];
                 snprintf(log_entry, sizeof(log_entry),
                         "{\"ip\":\"%s\",\"timestamp\":\"%s\",\"action\":\"%s\",\"type\":\"failed_login\"}",
-                        ip ? ip : "unknown", 
+                        suspicious_ip ? suspicious_ip : "unknown", 
                         timestamp ? timestamp : "unknown",
                         action ? action : "unknown");
                 

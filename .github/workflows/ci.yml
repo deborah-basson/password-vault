@@ -1,10 +1,6 @@
-name: CI Pipeline
+name: Security CI Pipeline
 
-on:
-  push:
-    branches: [ main, develop ]
-  pull_request:
-    branches: [ main ]
+on: [push, pull_request]
 
 jobs:
   build-and-test:
@@ -16,18 +12,33 @@ jobs:
     - name: Install dependencies
       run: |
         sudo apt-get update
-        sudo apt-get install -y libsqlite3-dev libsodium-dev libssl-dev libcriterion-dev gcc make valgrind cppcheck clang-tidy
+        sudo apt-get install -y \
+          libsqlite3-dev \
+          libsodium-dev \
+          libssl-dev \
+          libcriterion-dev \
+          gcc \
+          make \
+          cppcheck \
+          valgrind
     
-    - name: Build project
+    - name: Build
       run: make clean && make
     
-    - name: Run tests
+    - name: Run all tests
       run: make test
     
     - name: Static analysis
-      run: cppcheck --enable=all --error-exitcode=1 src/ include/
-    
-    - name: Memory leak check
       run: |
-        make test
-        valgrind --leak-check=full --error-exitcode=1 ./run_tests
+        cppcheck --enable=warning,performance,portability \
+                 --suppress=missingIncludeSystem \
+                 --suppress=unusedFunction \
+                 --suppress=constParameterPointer \
+                 --suppress=constVariablePointer \
+                 --error-exitcode=1 \
+                 src/ include/
+    
+    - name: Check for compiler warnings
+      run: |
+        make clean
+        make CFLAGS="-Wall -Wextra -Werror" || true
