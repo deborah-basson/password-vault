@@ -1,0 +1,33 @@
+name: CI Pipeline
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: Install dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y libsqlite3-dev libsodium-dev libssl-dev libcriterion-dev gcc make valgrind cppcheck clang-tidy
+    
+    - name: Build project
+      run: make clean && make
+    
+    - name: Run tests
+      run: make test
+    
+    - name: Static analysis
+      run: cppcheck --enable=all --error-exitcode=1 src/ include/
+    
+    - name: Memory leak check
+      run: |
+        make test
+        valgrind --leak-check=full --error-exitcode=1 ./run_tests
