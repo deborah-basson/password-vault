@@ -832,23 +832,12 @@ make docker-shell    # Access container shell
 
 This project was developed by students at **EPITA** as part of the **Secure Development** course.
 
-| Name | Email | Role |
-|------|-------|------|
-| **Deborah Basson** | [deborah.basson@epita.fr](mailto:deborah.basson@epita.fr) | Lead Developer |
-| **Louise Grosdhomme** | [louise.grosdhomme@epita.fr](mailto:louise.grosdhomme@epita.fr) | Security & Testing |
-| **Alida Nana-Sunji-Kouanang** | [alida.nana-sunji-kouanang@epita.fr](mailto:alida.nana-sunji-kouanang@epita.fr) | Database & API |
-| **Maimouna Tall** | [maimouna.tall@epita.fr](mailto:maimouna.tall@epita.fr) | Frontend & UX |
-
----
-
-## 📞 Support
-
-### For Security Issues
-See [SECURITY.md](SECURITY.md) for vulnerability reporting.
-
-### For General Questions
-- Open an issue on [GitHub](https://github.com/deborah-basson/password-vault/issues)
-- Contact the team via email
+| Name | Email |
+|------|-------|
+| **Deborah Basson** | [deborah.basson@epita.fr](mailto:deborah.basson@epita.fr) |
+| **Louise Grosdhomme** | [louise.grosdhomme@epita.fr](mailto:louise.grosdhomme@epita.fr) |
+| **Alida Nana-Sunji-Kouanang** | [alida.nana-sunji-kouanang@epita.fr](mailto:alida.nana-sunji-kouanang@epita.fr) |
+| **Maimouna Tall** | [maimouna.tall@epita.fr](mailto:maimouna.tall@epita.fr) |
 
 ---
 
@@ -857,17 +846,6 @@ See [SECURITY.md](SECURITY.md) for vulnerability reporting.
 This project is developed for **educational purposes** as part of the EPITA curriculum.
 
 **© 2025 EPITA - All rights reserved**
-
----
-
-## ✅ Project Status
-
-- ✅ All 59 tests passing
-- ✅ Zero memory leaks (valgrind verified)
-- ✅ Static analysis clean (cppcheck)
-- ✅ CI/CD pipeline operational
-- ✅ Security documentation complete
-- ✅ Ready for security audit
 
 ---
 

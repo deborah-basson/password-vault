@@ -13,7 +13,7 @@ static void generate_checksum(const char *data, size_t data_len, char *checksum_
     crypto_generichash(hash, sizeof(hash), (unsigned char*)data, data_len, NULL, 0);
     
     for (int i = 0; i < 32 && i < (int)crypto_generichash_BYTES; i++) {
-        sprintf(checksum_out + (i * 2), "%02x", hash[i]);
+        snprintf(checksum_out + (i * 2), 3, "%02x", hash[i]);
     }
     checksum_out[64] = '\0';
 }

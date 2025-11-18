@@ -839,7 +839,7 @@ void handle_api_request(int socket, SSL *ssl, const char *method, const char *pa
                 "\"total_failed\":%d,\"unique_ips\":%d,\"last_hour\":%d",
                 total_failed, unique_ips, last_hour);
         strcat(response, stats);
-        strcat(response, "}}");
+        strncat(response, "}}", sizeof(response) - strlen(response) - 1);
         
         send_response(socket, ssl, 200, "application/json", response);
         return;
