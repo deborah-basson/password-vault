@@ -10,24 +10,20 @@ int db_create_user_with_questions(Database *db, const char *master_hash, const c
                                  const char *question2, const char *answer2,
                                  const char *question3, const char *answer3,
                                  const char *recovery_code) {
-    // Créer l'utilisateur d'abord
     if (!db_create_user(db, master_hash, salt, "")) {
         return 0;
     }
     
-    // Hasher les réponses (simplifié pour le moment)
     char answer1_hash[HASH_LENGTH];
     char answer2_hash[HASH_LENGTH]; 
     char answer3_hash[HASH_LENGTH];
     
-    // Utiliser un sel fixe pour la démo (en production, utiliser des salts différents)
     const char *demo_salt = "security_salt";
     
     hash_password(answer1, demo_salt, answer1_hash, sizeof(answer1_hash));
     hash_password(answer2, demo_salt, answer2_hash, sizeof(answer2_hash));
     hash_password(answer3, demo_salt, answer3_hash, sizeof(answer3_hash));
     
-    // Insérer les questions de sécurité
     const char *sql = "INSERT INTO security_questions (user_id, question1, answer1_hash, question2, answer2_hash, question3, answer3_hash, recovery_code) "
                      "VALUES (1, ?, ?, ?, ?, ?, ?, ?)";
     sqlite3_stmt *stmt;
@@ -87,7 +83,18 @@ int db_get_security_questions(Database *db, SecurityQuestions *questions) {
 }
 
 int db_verify_security_answers(Database *db, const char *answer1, const char *answer2, const char *answer3) {
-    const char *sql = "SELECT answer1_hash, answer2_hash, answer3_hash FROM security_questions ORDER BY id DESC LIMIT 1";
+    const char *check_sql = "SELECT locked_until FROM security_questions WHERE locked_until > datetime('now')";
+    sqlite3_stmt *check_stmt;
+    
+    if (sqlite3_prepare_v2(db->db, check_sql, -1, &check_stmt, NULL) == SQLITE_OK) {
+        if (sqlite3_step(check_stmt) == SQLITE_ROW) {
+            sqlite3_finalize(check_stmt);
+            return -1;
+        }
+        sqlite3_finalize(check_stmt);
+    }
+    
+    const char *sql = "SELECT answer1_hash, answer2_hash, answer3_hash, recovery_attempts FROM security_questions ORDER BY id DESC LIMIT 1";
     sqlite3_stmt *stmt;
     
     if (sqlite3_prepare_v2(db->db, sql, -1, &stmt, NULL) != SQLITE_OK) {
@@ -98,20 +105,32 @@ int db_verify_security_answers(Database *db, const char *answer1, const char *an
         const char *hash1 = (const char*)sqlite3_column_text(stmt, 0);
         const char *hash2 = (const char*)sqlite3_column_text(stmt, 1);
         const char *hash3 = (const char*)sqlite3_column_text(stmt, 2);
+        int current_attempts = sqlite3_column_int(stmt, 3);
         
         if (!hash1 || !hash2 || !hash3) {
             sqlite3_finalize(stmt);
             return 0;
         }
         
-        // Vérifier chaque réponse avec le sel de démonstration
         const char *demo_salt = "security_salt";
         int valid1 = verify_password(answer1, demo_salt, hash1);
         int valid2 = verify_password(answer2, demo_salt, hash2);
         int valid3 = verify_password(answer3, demo_salt, hash3);
         
         sqlite3_finalize(stmt);
-        return valid1 && valid2 && valid3;
+        
+        if (valid1 && valid2 && valid3) {
+            db_reset_recovery_attempts(db);
+            return 1;
+        } else {
+            if (current_attempts >= 2) {
+                db_increment_recovery_attempts(db);
+                return -1;
+            } else {
+                db_increment_recovery_attempts(db);
+                return 0;
+            }
+        }
     }
     
     sqlite3_finalize(stmt);
@@ -121,14 +140,13 @@ int db_verify_security_answers(Database *db, const char *answer1, const char *an
 int db_verify_recovery_code(Database *db, const char *code) {
     if (!code) return 0;
     
-    // Vérifier si le compte est verrouillé
     const char *check_sql = "SELECT locked_until FROM security_questions WHERE locked_until > datetime('now')";
     sqlite3_stmt *check_stmt;
     
     if (sqlite3_prepare_v2(db->db, check_sql, -1, &check_stmt, NULL) == SQLITE_OK) {
         if (sqlite3_step(check_stmt) == SQLITE_ROW) {
             sqlite3_finalize(check_stmt);
-            return -1; // Compte verrouillé
+            return -1;
         }
         sqlite3_finalize(check_stmt);
     }
@@ -141,17 +159,31 @@ int db_verify_recovery_code(Database *db, const char *code) {
     }
     
     if (sqlite3_step(stmt) == SQLITE_ROW) {
-        const char *stored_code = (const char*)sqlite3_column_text(stmt, 0);
-        sqlite3_column_int(stmt, 1);
+        const char *stored_code_ptr = (const char*)sqlite3_column_text(stmt, 0);
+        int current_attempts = sqlite3_column_int(stmt, 1);
+        
+        char stored_code[256];
+        if (stored_code_ptr) {
+            strncpy(stored_code, stored_code_ptr, sizeof(stored_code) - 1);
+            stored_code[sizeof(stored_code) - 1] = '\0';
+        } else {
+            sqlite3_finalize(stmt);
+            return 0;
+        }
         
         sqlite3_finalize(stmt);
         
-        if (stored_code && strcmp(stored_code, code) == 0) {
+        if (strcmp(stored_code, code) == 0) {
             db_reset_recovery_attempts(db);
-            return 1; // Code correct
+            return 1;
         } else {
-            db_increment_recovery_attempts(db);
-            return 0; // Code incorrect
+            if (current_attempts >= 2) {
+                db_increment_recovery_attempts(db);
+                return -1;
+            } else {
+                db_increment_recovery_attempts(db);
+                return 0;
+            }
         }
     }
     
@@ -170,7 +202,6 @@ int db_increment_recovery_attempts(Database *db) {
     int rc = sqlite3_step(stmt);
     sqlite3_finalize(stmt);
     
-    // Verrouiller après 3 tentatives échouées
     if (rc == SQLITE_DONE) {
         const char *check_sql = "SELECT recovery_attempts FROM security_questions WHERE recovery_attempts >= 3";
         sqlite3_stmt *check_stmt;

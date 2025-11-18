@@ -76,12 +76,12 @@ void generate_secure_password(char *password, int length) {
     const char all[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%^&*()_+-=[]{}|;:,.<>?";
     int all_len = sizeof(all) - 1;
     
-    for (int i = 4; i < length - 1; i++) {
+    for (int i = 4; i < length; i++) {
         password[i] = all[random_bytes[i] % all_len];
     }
-    password[length - 1] = '\0';
+    password[length] = '\0';
     
-    for (int i = length - 2; i > 0; i--) {
+    for (int i = length - 1; i > 0; i--) {
         int j = random_bytes[i + length] % (i + 1);
         char temp = password[i];
         password[i] = password[j];
@@ -130,6 +130,8 @@ int verify_password(const char *password, const char *salt, const char *hash) {
 int encrypt_data(const char *plaintext, const char *key, char *ciphertext, size_t *cipher_len) {
     if (!plaintext || !key || !ciphertext || !cipher_len) return 0;
     
+    if (strlen(key) == 0 || strlen(plaintext) == 0) return 0;
+    
     size_t plaintext_len = strlen(plaintext);
     
     unsigned char nonce[crypto_aead_aes256gcm_NPUBBYTES];
@@ -173,6 +175,8 @@ int encrypt_data(const char *plaintext, const char *key, char *ciphertext, size_
 
 int decrypt_data(const char *ciphertext, size_t cipher_len, const char *key, char *plaintext) {
     if (!ciphertext || !key || !plaintext) return 0;
+    
+    if (strlen(key) == 0) return 0;
     
     unsigned char binary_cipher[512];
     size_t binary_len;

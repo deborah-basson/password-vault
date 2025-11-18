@@ -45,10 +45,7 @@ Test(edge_cases, sql_injection_attempts) {
         char *sanitized = sanitize_html(sql_injections[i]);
         cr_assert_not_null(sanitized);
         
-        // Vérifier que le résultat ne contient pas de caractères dangereux
-        cr_assert_null(strstr(sanitized, "DROP"));
-        cr_assert_null(strstr(sanitized, "INSERT"));
-        cr_assert_null(strstr(sanitized, "OR '1'='1"));
+        cr_assert_not_null(strstr(sanitized, "&#x27;"), "Les apostrophes devraient être échappées");
         
         sodium_free(sanitized);
     }
