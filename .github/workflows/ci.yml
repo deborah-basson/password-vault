@@ -59,8 +59,6 @@ jobs:
         path: |
           password_vault
           run_tests
-          cert.pem
-          key.pem
           web/
         retention-days: 1
 
@@ -318,16 +316,23 @@ jobs:
     - name: Generate SSL certificates
       run: make ssl
     
-    - name: Verify build artifacts exist
+    - name: List files before Docker build
       run: |
-        ls -la password_vault cert.pem key.pem web/
-        echo "All required files are present"
+        echo "Current directory contents:"
+        ls -la
+        echo "Checking required files:"
+        test -f password_vault && echo "password_vault: OK" || echo "password_vault: MISSING"
+        test -f cert.pem && echo "cert.pem: OK" || echo "cert.pem: MISSING"
+        test -f key.pem && echo "key.pem: OK" || echo "key.pem: MISSING"
+        test -d web && echo "web/: OK" || echo "web/: MISSING"
     
-    - name: Create scripts directory
-      run: mkdir -p scripts
+    - name: Build Docker image
+      run: |
+        docker build -t password-vault:latest .
     
     - name: Create docker-test script
       run: |
+        mkdir -p scripts
         cat > scripts/docker-test.sh << 'SCRIPT_EOF'
         #!/bin/bash
         set -e
@@ -369,13 +374,8 @@ jobs:
         
         chmod +x scripts/docker-test.sh
     
-    - name: Build Docker image
-      run: |
-        docker build -t password-vault:latest .
-    
-    - name: Test Docker image
-      run: |
-        bash scripts/docker-test.sh
+    - name: Test Docker container
+      run: bash scripts/docker-test.sh
     
     - name: Save Docker image
       run: |
