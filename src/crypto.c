@@ -142,7 +142,10 @@ int encrypt_data(const char *plaintext, const char *key, char *ciphertext, size_
                        (unsigned char*)key, strlen(key),
                        NULL, 0);
     
-    unsigned char binary_cipher[512];
+    size_t binary_cipher_size = sizeof(nonce) + plaintext_len + crypto_aead_aes256gcm_ABYTES;
+    unsigned char *binary_cipher = malloc(binary_cipher_size);
+    if (!binary_cipher) return 0;
+    
     unsigned long long ciphertext_len;
     
     memcpy(binary_cipher, nonce, sizeof(nonce));
@@ -157,6 +160,7 @@ int encrypt_data(const char *plaintext, const char *key, char *ciphertext, size_
         nonce,
         derived_key
     ) != 0) {
+        free(binary_cipher);
         return 0;
     }
     
@@ -164,11 +168,13 @@ int encrypt_data(const char *plaintext, const char *key, char *ciphertext, size_
     
     size_t b64_maxlen = sodium_base64_ENCODED_LEN(total_binary_len, sodium_base64_VARIANT_ORIGINAL);
     if (b64_maxlen > *cipher_len) {
+        free(binary_cipher);
         return 0;
     }
     
     sodium_bin2base64(ciphertext, *cipher_len, binary_cipher, total_binary_len, sodium_base64_VARIANT_ORIGINAL);
     
+    free(binary_cipher);
     *cipher_len = strlen(ciphertext);
     return 1;
 }
@@ -178,15 +184,20 @@ int decrypt_data(const char *ciphertext, size_t cipher_len, const char *key, cha
     
     if (strlen(key) == 0) return 0;
     
-    unsigned char binary_cipher[512];
+    size_t max_binary_len = (cipher_len * 3) / 4 + 4;
+    unsigned char *binary_cipher = malloc(max_binary_len);
+    if (!binary_cipher) return 0;
+    
     size_t binary_len;
     
-    if (sodium_base642bin(binary_cipher, sizeof(binary_cipher), ciphertext, cipher_len,
+    if (sodium_base642bin(binary_cipher, max_binary_len, ciphertext, cipher_len,
                          NULL, &binary_len, NULL, sodium_base64_VARIANT_ORIGINAL) != 0) {
+        free(binary_cipher);
         return 0;
     }
     
     if (binary_len < crypto_aead_aes256gcm_NPUBBYTES + crypto_aead_aes256gcm_ABYTES) {
+        free(binary_cipher);
         return 0;
     }
     
@@ -210,10 +221,12 @@ int decrypt_data(const char *ciphertext, size_t cipher_len, const char *key, cha
         nonce,
         derived_key
     ) != 0) {
+        free(binary_cipher);
         return 0;
     }
     
     plaintext[plaintext_len] = '\0';
+    free(binary_cipher);
     return 1;
 }
 

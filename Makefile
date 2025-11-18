@@ -18,24 +18,13 @@ TEST_SOURCES = $(wildcard $(TEST_DIR)/*.c)
 TEST_OBJECTS = $(TEST_SOURCES:$(TEST_DIR)/%.c=$(TEST_BUILD_DIR)/%.o)
 TEST_LDFLAGS = -lcriterion $(LDFLAGS)
 
-SOURCES = $(SRC_DIR)/api_server.c \
-          $(SRC_DIR)/database.c \
-          $(SRC_DIR)/crypto.c \
-          $(SRC_DIR)/session.c \
-          $(SRC_DIR)/database_security.c \
-          $(SRC_DIR)/security_questions.c \
-		  $(SRC_DIR)/password_history.c
+SOURCES = $(wildcard $(SRC_DIR)/*.c)
 
 OBJECTS = $(SOURCES:$(SRC_DIR)/%.c=$(BUILD_DIR)/%.o)
 EXECUTABLE = password_vault
 
 # Fichiers objets pour les tests (exclut api_server.c qui a main())
-TEST_OBJ_DEPS = $(BUILD_DIR)/database.o \
-                $(BUILD_DIR)/crypto.o \
-                $(BUILD_DIR)/session.o \
-                $(BUILD_DIR)/database_security.o \
-                $(BUILD_DIR)/security_questions.o \
-				$(BUILD_DIR)/password_history.o
+TEST_OBJ_DEPS = $(filter-out $(BUILD_DIR)/api_server.o, $(OBJECTS))
 
 RED = \033[0;31m
 GREEN = \033[0;32m
