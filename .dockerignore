@@ -1,6 +1,5 @@
 build/
 *.o
-password_vault
 vault.db
 vault.db-shm
 vault.db-wal
@@ -18,4 +17,3 @@ TODO.md
 *~
 .vscode/
 .idea/
-.github/

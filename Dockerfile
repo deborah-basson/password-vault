@@ -17,9 +17,10 @@ RUN useradd -m -u 1000 -s /bin/bash vault && \
 
 WORKDIR /app
 
-COPY --chown=vault:vault password_vault .
+COPY --chown=vault:vault password_vault ./password_vault
 COPY --chown=vault:vault web/ ./web/
-COPY --chown=vault:vault cert.pem key.pem ./
+COPY --chown=vault:vault cert.pem ./cert.pem
+COPY --chown=vault:vault key.pem ./key.pem
 
 RUN chmod 500 password_vault && \
     chmod 600 cert.pem key.pem && \
@@ -32,6 +33,6 @@ EXPOSE 8443
 VOLUME ["/data"]
 
 HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
-  CMD nc -z localhost 8443 || exit 1
+  CMD timeout 1 bash -c 'echo > /dev/tcp/localhost/8443' || exit 1
 
 ENTRYPOINT ["./password_vault"]
