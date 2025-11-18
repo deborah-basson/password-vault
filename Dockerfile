@@ -19,12 +19,14 @@ WORKDIR /app
 
 COPY --chown=vault:vault password_vault ./password_vault
 COPY --chown=vault:vault web/ ./web/
+COPY --chown=vault:vault sql/ ./sql/
 COPY --chown=vault:vault cert.pem ./cert.pem
 COPY --chown=vault:vault key.pem ./key.pem
 
 RUN chmod 500 password_vault && \
     chmod 600 cert.pem key.pem && \
-    chmod 755 web
+    chmod 755 web sql && \
+    chmod 644 sql/*
 
 USER vault
 
