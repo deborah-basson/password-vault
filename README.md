@@ -2,7 +2,7 @@
 
 [![CI Pipeline](https://github.com/deborah-basson/password-vault/actions/workflows/ci.yml/badge.svg)](https://github.com/deborah-basson/password-vault/actions)
 [![License](https://img.shields.io/badge/license-Educational-blue.svg)](LICENSE)
-[![Security](https://img.shields.io/badge/security-audited-green.svg)](SECURITY.md)
+[![Security](https://img.shields.io/badge/security-audited-green.svg)](VULNERABILITY_POC.md)
 
 A secure, production-ready password manager with military-grade encryption, 2FA support, and comprehensive security features. Developed as part of the **Secure Development** course at **EPITA**.
 
@@ -18,14 +18,15 @@ A secure, production-ready password manager with military-grade encryption, 2FA 
 7. [Testing](#testing)
 8. [Security](#security)
 9. [API Documentation](#api-documentation)
-10. [Production Deployment](#production-deployment)
+10. [Docker Deployment](#docker-deployment)
 11. [Development](#development)
-12. [Known Limitations](#known-limitations)
-13. [Contributors](#contributors)
+12. [Documentation](#documentation)
+13. [Known Limitations](#known-limitations)
+14. [Contributors](#contributors)
 
 ---
 
-## 🌟 Overview
+## Overview
 
 This **password vault** is a secure password management system written in **C** that provides a web-based interface for securely storing and managing passwords with enterprise-grade encryption. The project demonstrates best practices in secure software development, cryptography, and web security.
 
@@ -34,11 +35,13 @@ This **password vault** is a secure password management system written in **C** 
 - ✅ **Zero memory leaks** (valgrind verified)
 - ✅ **CI/CD pipeline** with automated security checks
 - ✅ **Military-grade encryption** (AES-256-GCM + Argon2id)
-- ✅ **Comprehensive security features** (2FA, CSRF, rate limiting, etc.)
+- ✅ **Comprehensive security features** (2FA, CSRF, rate limiting)
+- ✅ **Docker support** for easy deployment
+- ✅ **Security audited** with vulnerability analysis
 
 ---
 
-## 🌟 Features
+## Features
 
 ### Core Security
 - **AES-256-GCM encryption** for all stored passwords
@@ -54,7 +57,7 @@ This **password vault** is a secure password management system written in **C** 
 - ✅ Secure storage with encryption at rest
 - ✅ Password history tracking (prevent reuse)
 - ✅ Password strength validation
-- ✅ **Encrypted import/export functionality**
+- ✅ Encrypted import/export functionality
 - ✅ Password generator with customizable rules
 - ✅ Search and filter capabilities
 - ✅ Secure notes storage
@@ -81,7 +84,7 @@ This **password vault** is a secure password management system written in **C** 
 
 ---
 
-## 🏗️ Architecture
+## Architecture
 
 ### System Architecture
 
@@ -156,15 +159,18 @@ password-vault/
 ├── .github/
 │   └── workflows/
 │       └── ci.yml             # CI/CD pipeline
+├── Dockerfile                 # Docker configuration
+├── docker-compose.yml         # Docker Compose setup
 ├── Makefile                   # Build configuration
 ├── README.md                  # This file
-├── SECURITY.md                # Security documentation
+├── VULNERABILITY_POC.md       # Security vulnerability analysis
+├── COLLABORATION.md           # Team workflow documentation
 └── TODO.md                    # Project roadmap
 ```
 
 ---
 
-## 📋 Requirements
+## Requirements
 
 ### System Requirements
 - **OS**: Linux (Ubuntu 20.04+, Debian 11+)
@@ -189,7 +195,7 @@ cppcheck            # Static analysis
 
 ---
 
-## 🚀 Installation
+## Installation
 
 ### 1. Clone the repository
 ```bash
@@ -233,7 +239,7 @@ The server will start on `https://localhost:8443`
 
 ---
 
-## 📖 Usage
+## Usage
 
 ### First-time Setup
 
@@ -330,7 +336,7 @@ curl -k -X POST https://localhost:8443/api/import \
 
 ---
 
-## 🧪 Testing
+## Testing
 
 ### Run All Tests
 ```bash
@@ -375,7 +381,7 @@ make analyze
 
 ---
 
-## 🔐 Security
+## Security
 
 ### Cryptographic Algorithms
 
@@ -404,14 +410,14 @@ make analyze
 ✅ **Password History**: Prevents password reuse  
 ✅ **Account Recovery**: Secure questions with rate limiting  
 
-### Threat Model
+### Vulnerability Analysis
 
-See [SECURITY.md](SECURITY.md) for:
-- Full threat model
-- Security assumptions
-- Attack surface analysis
+See [VULNERABILITY_POC.md](VULNERABILITY_POC.md) for:
+- Comprehensive vulnerability analysis
+- Proof-of-concept demonstrations
+- Secure implementation details
+- OWASP Top 10 coverage
 - Mitigation strategies
-- Reporting vulnerabilities
 
 ### Security Best Practices
 
@@ -425,7 +431,7 @@ See [SECURITY.md](SECURITY.md) for:
 
 ---
 
-## 📡 API Documentation
+## API Documentation
 
 ### Authentication Endpoints
 
@@ -633,78 +639,60 @@ export_password: StrongExportPassword123!
 
 ---
 
-## 🏭 Production Deployment
+## Docker Deployment
 
-### Security Checklist
-
-Before deploying to production:
-
-- [ ] Generate production SSL certificates (not self-signed)
-- [ ] Configure firewall rules (allow only port 8443)
-- [ ] Set proper file permissions (`chmod 600 vault.db cert.pem key.pem`)
-- [ ] Enable 2FA for all accounts
-- [ ] Set up regular encrypted backups
-- [ ] Disable debug output in code
-- [ ] Review and harden TLS configuration
-- [ ] Set strong master password policy
-- [ ] Configure reverse proxy (nginx/apache) if needed
-- [ ] Set up monitoring and alerting
-- [ ] Document incident response procedure
-
-### Recommended Configuration
+### Quick Start with Docker
 
 ```bash
-# File permissions
-chmod 600 vault.db cert.pem key.pem
-chmod 755 password_vault
-chown vault-user:vault-group vault.db cert.pem key.pem
+# Build and run with Docker Compose
+docker-compose up -d
 
-# Firewall (UFW)
-sudo ufw default deny incoming
-sudo ufw default allow outgoing
-sudo ufw allow 8443/tcp
-sudo ufw enable
+# Access the application
+https://localhost:8443
 
-# Systemd service
-sudo cp password-vault.service /etc/systemd/system/
-sudo systemctl daemon-reload
-sudo systemctl enable password-vault
-sudo systemctl start password-vault
-sudo systemctl status password-vault
+# View logs
+docker-compose logs -f
+
+# Stop
+docker-compose down
 ```
 
-### Production SSL Certificates
-
-For production, use certificates from a trusted CA:
+### Manual Docker Build
 
 ```bash
-# Let's Encrypt (free)
-sudo apt-get install certbot
-sudo certbot certonly --standalone -d your-domain.com
+# Build the image
+make docker-build
 
-# Copy certificates
-sudo cp /etc/letsencrypt/live/your-domain.com/fullchain.pem ./cert.pem
-sudo cp /etc/letsencrypt/live/your-domain.com/privkey.pem ./key.pem
-sudo chmod 600 cert.pem key.pem
+# Run the container
+docker run -d \
+  -p 8443:8443 \
+  -v $(pwd)/data:/data \
+  --name password-vault \
+  password-vault:latest
+
+# Check logs
+docker logs password-vault
+
+# Stop
+docker stop password-vault
+docker rm password-vault
 ```
 
-### Backup Strategy
+### Docker Commands
 
 ```bash
-# Create encrypted backup
-curl -k -X POST https://localhost:8443/api/export \
-  -H "Authorization: Bearer $SESSION_TOKEN" \
-  -H "X-CSRF-Token: $CSRF_TOKEN" \
-  -d '{"export_password": "BackupPassword123!"}' \
-  --output "backup-$(date +%Y%m%d).enc"
-
-# Automate with cron (daily at 2 AM)
-0 2 * * * /opt/password-vault/backup.sh
+make docker-build    # Build Docker image
+make docker-run      # Start container with docker-compose
+make docker-stop     # Stop container
+make docker-test     # Test Docker deployment
+make docker-clean    # Clean all Docker resources
+make docker-logs     # View container logs
+make docker-shell    # Access container shell
 ```
 
 ---
 
-## 🧰 Development
+## Development
 
 ### Build Targets
 
@@ -759,57 +747,47 @@ make CFLAGS="-fsanitize=address -g"
 
 ---
 
-## Docker Deployment
+## Documentation
 
-### Quick Start with Docker
-```bash
-# Build and run with Docker Compose
-docker-compose up -d
+### Project Documentation
 
-# Access the application
-https://localhost:8443
+- **[README.md](README.md)** - Project overview, installation, and usage guide
+- **[VULNERABILITY_POC.md](VULNERABILITY_POC.md)** - Security vulnerability analysis and proof-of-concept
+- **[COLLABORATION.md](COLLABORATION.md)** - Team workflow, sprint organization, and contribution guidelines
+- **[TODO.md](TODO.md)** - Project roadmap and development status
+- **[API Documentation](#api-documentation)** - Complete API reference (see above)
 
-# View logs
-docker-compose logs -f
+### Security Documentation
 
-# Stop
-docker-compose down
-```
+The project includes comprehensive security documentation:
 
-### Manual Docker Build
-```bash
-# Build the image
-make docker-build
+1. **Vulnerability Analysis** ([VULNERABILITY_POC.md](VULNERABILITY_POC.md))
+   - 10 common vulnerabilities analyzed
+   - Proof-of-concept code examples
+   - Secure implementation details
+   - OWASP Top 10 coverage
 
-# Run the container
-docker run -d \
-  -p 8443:8443 \
-  -v $(pwd)/data:/data \
-  --name password-vault \
-  password-vault:latest
+2. **Security Features** (this README)
+   - Cryptographic algorithms used
+   - Protection mechanisms
+   - Security best practices
 
-# Check logs
-docker logs password-vault
+3. **Audit Trail**
+   - All security-relevant events logged
+   - Failed authentication attempts tracked
+   - Rate limiting triggers recorded
 
-# Stop
-docker stop password-vault
-docker rm password-vault
-```
+### Team Documentation
 
-### Docker Commands
-```bash
-make docker-build    # Build Docker image
-make docker-run      # Start container with docker-compose
-make docker-stop     # Stop container
-make docker-test     # Test Docker deployment
-make docker-clean    # Clean all Docker resources
-make docker-logs     # View container logs
-make docker-shell    # Access container shell
-```
+- **Team Workflow** ([COLLABORATION.md](COLLABORATION.md))
+  - Sprint organization and planning
+  - Meeting notes and decisions
+  - Task distribution and time tracking
+  - Communication protocols
 
 ---
 
-## 🐛 Known Limitations
+## Known Limitations
 
 ### By Design
 - **Single-user system**: No multi-user support (by design for personal password manager)
@@ -828,20 +806,33 @@ make docker-shell    # Access container shell
 
 ---
 
-## 🤝 Contributors
+## Contributors
 
 This project was developed by students at **EPITA** as part of the **Secure Development** course.
 
-| Name | Email |
-|------|-------|
-| **Deborah Basson** | [deborah.basson@epita.fr](mailto:deborah.basson@epita.fr) |
-| **Louise Grosdhomme** | [louise.grosdhomme@epita.fr](mailto:louise.grosdhomme@epita.fr) |
-| **Alida Nana-Sunji-Kouanang** | [alida.nana-sunji-kouanang@epita.fr](mailto:alida.nana-sunji-kouanang@epita.fr) |
-| **Maimouna Tall** | [maimouna.tall@epita.fr](mailto:maimouna.tall@epita.fr) |
+| Name | Email | Role |
+|------|-------|------|
+| **Deborah Basson** | [deborah.basson@epita.fr](mailto:deborah.basson@epita.fr) | Lead Developer |
+| **Louise Grosdhomme** | [louise.grosdhomme@epita.fr](mailto:louise.grosdhomme@epita.fr) | Security Engineer |
+| **Alida Nana-Sunji-Kouanang** | [alida.nana-sunji-kouanang@epita.fr](mailto:alida.nana-sunji-kouanang@epita.fr) | Backend Developer |
+| **Maimouna Tall** | [maimouna.tall@epita.fr](mailto:maimouna.tall@epita.fr) | Frontend Developer |
+
+For detailed contribution information, see [COLLABORATION.md](COLLABORATION.md).
 
 ---
 
-## 📜 License
+## Support
+
+### For Security Issues
+See [VULNERABILITY_POC.md](VULNERABILITY_POC.md) for security analysis and reporting guidelines.
+
+### For General Questions
+- Open an issue on [GitHub](https://github.com/deborah-basson/password-vault/issues)
+- Contact the team via email
+
+---
+
+## License
 
 This project is developed for **educational purposes** as part of the EPITA curriculum.
 
@@ -849,5 +840,5 @@ This project is developed for **educational purposes** as part of the EPITA curr
 
 ---
 
-Last Updated: 2025-11-18
+Last Updated: 2025-11-18  
 Version: 1.0.0
