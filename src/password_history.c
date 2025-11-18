@@ -114,6 +114,11 @@ int db_check_password_reuse(Database *db, int password_id, const char *new_encry
 }
 
 int db_update_password_with_history(Database *db, int password_id, const char *new_encrypted_password, const char *master_key) {
+    (void)master_key;
+    
+    if (!db || !new_encrypted_password) {
+        return 0;
+    }
     // Vérifier si le mot de passe a été utilisé récemment
     PasswordEntry current_entry;
     if (db_get_password_by_id(db, password_id, &current_entry)) {
