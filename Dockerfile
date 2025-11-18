@@ -1,6 +1,5 @@
 FROM ubuntu:24.04
 
-LABEL maintainer="deborah.basson@epita.fr"
 LABEL description="Password Vault - Secure Password Manager"
 LABEL version="1.0.0"
 
@@ -11,7 +10,8 @@ RUN apt-get update && apt-get install -y \
     ca-certificates \
     && rm -rf /var/lib/apt/lists/*
 
-RUN useradd -m -u 1000 -s /bin/bash vault && \
+RUN groupadd -g 1001 vault && \
+    useradd -m -u 1001 -g vault -s /bin/bash vault && \
     mkdir -p /app /data && \
     chown -R vault:vault /app /data
 

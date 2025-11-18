@@ -8,9 +8,6 @@ on:
   schedule:
     - cron: '0 2 * * 1'
 
-env:
-  CACHE_VERSION: v1
-
 jobs:
   build:
     name: Build and Compile
@@ -19,16 +16,6 @@ jobs:
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
-    
-    - name: Cache dependencies
-      uses: actions/cache@v3
-      with:
-        path: |
-          /var/cache/apt
-          ~/.cache
-        key: ${{ runner.os }}-deps-${{ env.CACHE_VERSION }}
-        restore-keys: |
-          ${{ runner.os }}-deps-
     
     - name: Install build dependencies
       run: |
