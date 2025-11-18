@@ -965,6 +965,8 @@ char* read_file(const char *filepath) {
 }
 
 int main(int argc, char *argv[]) {
+    (void)argc;
+    (void)argv;
     int server_fd, client_socket;
     struct sockaddr_in address;
     int addrlen = sizeof(address);

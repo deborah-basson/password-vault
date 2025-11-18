@@ -1,13 +1,18 @@
 name: Security CI Pipeline
 
-on: [push, pull_request]
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main ]
 
 jobs:
   build-and-test:
     runs-on: ubuntu-latest
     
     steps:
-    - uses: actions/checkout@v3
+    - name: Checkout code
+      uses: actions/checkout@v3
     
     - name: Install dependencies
       run: |
@@ -22,13 +27,15 @@ jobs:
           cppcheck \
           valgrind
     
-    - name: Build
-      run: make clean && make
+    - name: Build project
+      run: |
+        make clean
+        make
     
     - name: Run all tests
       run: make test
     
-    - name: Static analysis
+    - name: Static code analysis
       run: |
         cppcheck --enable=warning,performance,portability \
                  --suppress=missingIncludeSystem \
@@ -38,7 +45,24 @@ jobs:
                  --error-exitcode=1 \
                  src/ include/
     
-    - name: Check for compiler warnings
+    - name: Memory leak detection
+      run: |
+        valgrind --leak-check=full \
+                 --show-leak-kinds=all \
+                 --track-origins=yes \
+                 --error-exitcode=1 \
+                 ./run_tests
+    
+    - name: Compile with warnings as errors
       run: |
         make clean
-        make CFLAGS="-Wall -Wextra -Werror" || true
+        make CFLAGS="-Wall -Wextra -Werror -O2"
+    
+    - name: Upload test results
+      if: always()
+      uses: actions/upload-artifact@v3
+      with:
+        name: test-results
+        path: |
+          *.log
+          vault.db
