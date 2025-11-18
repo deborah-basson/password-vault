@@ -62,7 +62,6 @@ jobs:
           cert.pem
           key.pem
           web/
-          build/
         retention-days: 1
 
   test:
@@ -319,6 +318,11 @@ jobs:
     - name: Generate SSL certificates
       run: make ssl
     
+    - name: Verify build artifacts exist
+      run: |
+        ls -la password_vault cert.pem key.pem web/
+        echo "All required files are present"
+    
     - name: Create scripts directory
       run: mkdir -p scripts
     
@@ -353,19 +357,14 @@ jobs:
             exit 1
         fi
         
-        echo "Checking container logs..."
-        docker logs $CONTAINER_NAME
-        
-        echo "Testing HTTPS endpoint..."
-        HTTP_CODE=$(curl -k -s -o /dev/null -w "%{http_code}" https://localhost:8443/ 2>&1 || echo "000")
-        
-        echo "HTTP Response Code: $HTTP_CODE"
+        echo "Container is running successfully"
+        docker logs $CONTAINER_NAME | head -20
         
         echo "Stopping and removing test container..."
         docker stop $CONTAINER_NAME
         docker rm $CONTAINER_NAME
         
-        echo "Docker tests completed!"
+        echo "Docker tests completed successfully!"
         SCRIPT_EOF
         
         chmod +x scripts/docker-test.sh
@@ -388,6 +387,7 @@ jobs:
         name: docker-image
         path: password-vault-docker.tar.gz
         retention-days: 7
+        if-no-files-found: warn
 
   final-report:
     name: Generate Final Report

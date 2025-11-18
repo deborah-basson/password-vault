@@ -1,18 +1,47 @@
+# Binaries
+password_vault
+run_tests
 *.o
-src/*.o
 *.out
-src/*.out
-*.exe
-*.elf
-*.a
-src/*.a
-*.so
-src/*.so
-*.dll
-*.lib
+
+# Build directories
+build/
+
+# Database files
+*.db
+*.db-shm
+*.db-wal
+
+# SSL/TLS certificates and keys
+*.pem
+*.key
+*.crt
+*.csr
+
+# Docker
+*.tar.gz
+password-vault-docker.tar.gz
+
+# Logs
 *.log
-*.tmp
+valgrind-report.txt
+cppcheck-report.xml
+semgrep-report.json
+
+# Test artifacts
+test-summary.md
+FINAL_REPORT.md
+
+# IDE
 .vscode/
 .idea/
-password_manager
-*.pem
+*.swp
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Temporary files
+*.tmp
+.env

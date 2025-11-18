@@ -1,5 +1,6 @@
 FROM ubuntu:24.04
 
+LABEL maintainer="deborah.basson@epita.fr"
 LABEL description="Password Vault - Secure Password Manager"
 LABEL version="1.0.0"
 
