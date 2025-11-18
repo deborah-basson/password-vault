@@ -821,7 +821,5 @@ This project is developed for **educational purposes** as part of the EPITA curr
 
 ---
 
-**Built with ❤️ and 🔐 by EPITA students**
-
 Last Updated: 2025-11-18
 Version: 1.0.0
