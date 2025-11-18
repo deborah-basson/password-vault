@@ -759,6 +759,56 @@ make CFLAGS="-fsanitize=address -g"
 
 ---
 
+## Docker Deployment
+
+### Quick Start with Docker
+```bash
+# Build and run with Docker Compose
+docker-compose up -d
+
+# Access the application
+https://localhost:8443
+
+# View logs
+docker-compose logs -f
+
+# Stop
+docker-compose down
+```
+
+### Manual Docker Build
+```bash
+# Build the image
+make docker-build
+
+# Run the container
+docker run -d \
+  -p 8443:8443 \
+  -v $(pwd)/data:/data \
+  --name password-vault \
+  password-vault:latest
+
+# Check logs
+docker logs password-vault
+
+# Stop
+docker stop password-vault
+docker rm password-vault
+```
+
+### Docker Commands
+```bash
+make docker-build    # Build Docker image
+make docker-run      # Start container with docker-compose
+make docker-stop     # Stop container
+make docker-test     # Test Docker deployment
+make docker-clean    # Clean all Docker resources
+make docker-logs     # View container logs
+make docker-shell    # Access container shell
+```
+
+---
+
 ## 🐛 Known Limitations
 
 ### By Design

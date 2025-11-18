@@ -15,3 +15,4 @@ src/*.so
 .vscode/
 .idea/
 password_manager
+*.pem
