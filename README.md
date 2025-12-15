@@ -195,7 +195,7 @@ cppcheck            # Static analysis
 
 ---
 
-## Installation
+## Installation + Build
 
 ### 1. Clone the repository
 ```bash
@@ -215,26 +215,10 @@ sudo apt-get install -y libsqlite3-dev libsodium-dev libssl-dev gcc make
 # Optional: testing tools
 sudo apt-get install -y libcriterion-dev valgrind cppcheck
 ```
-
-### 3. Build the project
-```bash
-make
-```
-
-### 4. Generate SSL certificates
-```bash
-make ssl
-```
-
-This generates self-signed certificates for development:
-- `cert.pem` - SSL certificate
-- `key.pem` - Private key
-
-### 5. Run the server
+### 3. Build the projet 
 ```bash
 make run
 ```
-
 The server will start on `https://localhost:8443`
 
 ---
@@ -636,65 +620,6 @@ export_password: StrongExportPassword123!
   "imported_count": 42
 }
 ```
-
----
-
-## Docker Deployment
-
-### Quick Start with Docker
-
-```bash
-# Build and run with Docker Compose
-sudo apt update
-sudo apt install -y libsqlite3-dev libsodium-dev libssl-dev gcc make
-sudo usermod -aG docker $USER
-newgrp docker
-make
-docker-compose up -d
-
-# Access the application
-https://localhost:8443
-
-# View logs
-docker-compose logs -f
-
-# Stop
-docker-compose down
-```
-
-### Manual Docker Build
-
-```bash
-# Build the image
-make docker-build
-
-# Run the container
-docker run -d \
-  -p 8443:8443 \
-  -v $(pwd)/data:/data \
-  --name password-vault \
-  password-vault:latest
-
-# Check logs
-docker logs password-vault
-
-# Stop
-docker stop password-vault
-docker rm password-vault
-```
-
-### Docker Commands
-
-```bash
-make docker-build    # Build Docker image
-make docker-run      # Start container with docker-compose
-make docker-stop     # Stop container
-make docker-test     # Test Docker deployment
-make docker-clean    # Clean all Docker resources
-make docker-logs     # View container logs
-make docker-shell    # Access container shell
-```
-
 ---
 
 ## Development
