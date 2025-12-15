@@ -18,11 +18,10 @@ A secure, production-ready password manager with military-grade encryption, 2FA 
 7. [Testing](#testing)
 8. [Security](#security)
 9. [API Documentation](#api-documentation)
-10. [Docker Deployment](#docker-deployment)
-11. [Development](#development)
-12. [Documentation](#documentation)
-13. [Known Limitations](#known-limitations)
-14. [Contributors](#contributors)
+10. [Development](#development)
+11. [Documentation](#documentation)
+12. [Known Limitations](#known-limitations)
+13. [Contributors](#contributors)
 
 ---
 
