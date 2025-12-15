@@ -165,17 +165,3 @@ BEGIN
     );
 END;
 
--- ============================================
--- DONNÉES PAR DÉFAUT
--- ============================================
-
-INSERT OR IGNORE INTO users (id, master_hash, salt) 
-VALUES (1, 'default_hash', 'default_salt');
-
-INSERT OR IGNORE INTO user_security_policies (
-    user_id, require_2fa, password_min_length, require_mixed_case, 
-    require_numbers, require_symbols, password_history_size, 
-    max_login_attempts, session_timeout, auto_lock_timeout
-) VALUES (
-    1, 1, 12, 1, 1, 1, 5, 3, 900, 300
-);

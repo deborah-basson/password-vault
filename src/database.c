@@ -108,9 +108,7 @@ int db_init(Database *db) {
             "  success INTEGER NOT NULL,"
             "  ip_address TEXT,"
             "  timestamp DATETIME DEFAULT CURRENT_TIMESTAMP"
-            ");"
-            "INSERT OR IGNORE INTO users (id, master_hash, salt) "
-            "VALUES (1, 'default_hash', 'default_salt');";
+            ");";
         
         char *err_msg = NULL;
         if (sqlite3_exec(db->db, minimal_schema, NULL, NULL, &err_msg) != SQLITE_OK) {

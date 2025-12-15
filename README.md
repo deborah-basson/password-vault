@@ -645,6 +645,11 @@ export_password: StrongExportPassword123!
 
 ```bash
 # Build and run with Docker Compose
+sudo apt update
+sudo apt install -y libsqlite3-dev libsodium-dev libssl-dev gcc make
+sudo usermod -aG docker $USER
+newgrp docker
+make
 docker-compose up -d
 
 # Access the application
