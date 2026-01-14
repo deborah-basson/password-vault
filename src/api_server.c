@@ -13,6 +13,7 @@
 #include <time.h>
 #include <openssl/ssl.h>
 #include <openssl/err.h>
+#include <sodium.h>
 
 typedef struct {
     int socket;
@@ -845,13 +846,80 @@ void handle_api_request(int socket, SSL *ssl, const char *method, const char *pa
         return;
     }
 
+    if (strcmp(path, "/api/request-password-reset") == 0 && strcmp(method, "POST") == 0) {
+        char *username = parse_json_field(body, "username");
+        
+        if (!username) {
+            snprintf(response, sizeof(response), "{\"error\":\"Nom d'utilisateur manquant\"}");
+            send_response(socket, ssl, 400, "application/json", response);
+            return;
+        }
+        
+        pthread_mutex_lock(&db_mutex);
+        
+        UserAccount user;
+        int user_exists = db_get_user(&db, &user);
+        
+        if (!user_exists) {
+            pthread_mutex_unlock(&db_mutex);
+            snprintf(response, sizeof(response), "{\"success\":true,\"message\":\"Si l'utilisateur existe, un token a été généré\"}");
+            send_response(socket, ssl, 200, "application/json", response);
+            db_log_attempt(&db, "RESET_REQUEST_UNKNOWN", 0, ip);
+            free(username);
+            return;
+        }
+        
+        unsigned char random_bytes[32];
+        randombytes_buf(random_bytes, sizeof(random_bytes));
+        
+        char token_hex[65];
+        sodium_bin2hex(token_hex, sizeof(token_hex), random_bytes, sizeof(random_bytes));
+        
+        unsigned char token_hash_raw[crypto_generichash_BYTES];
+        crypto_generichash(token_hash_raw, sizeof(token_hash_raw), 
+                          (unsigned char*)token_hex, strlen(token_hex), 
+                          NULL, 0);
+        
+        char token_hash[crypto_generichash_BYTES * 2 + 1];
+        sodium_bin2hex(token_hash, sizeof(token_hash), token_hash_raw, sizeof(token_hash_raw));
+        
+        time_t expires_at = time(NULL) + 900;
+        
+        if (!db_store_recovery_token(&db, user.id, token_hash, expires_at)) {
+            snprintf(response, sizeof(response), "{\"error\":\"Erreur lors de la génération du token\"}");
+            send_response(socket, ssl, 500, "application/json", response);
+            pthread_mutex_unlock(&db_mutex);
+            free(username);
+            return;
+        }
+        
+        db_log_attempt(&db, "RESET_REQUEST_SUCCESS", 1, ip);
+        pthread_mutex_unlock(&db_mutex);
+        
+        snprintf(response, sizeof(response), 
+                "{\"success\":true,\"token\":\"%s\",\"message\":\"Token généré, valide 15 minutes\"}", 
+                token_hex);
+        send_response(socket, ssl, 200, "application/json", response);
+        
+        printf("✅ Token de récupération généré pour user ID: %d\n", user.id);
+        
+        free(username);
+        return;
+    }
+
     // ==================== ROUTE RÉINITIALISATION MOT DE PASSE ====================
     if (strcmp(path, "/api/reset-password") == 0 && strcmp(method, "POST") == 0) {
+        char *recovery_token = parse_json_field(body, "recovery_token");
         char *new_password = parse_json_field(body, "password");
         
-        if (!new_password) {
-            snprintf(response, sizeof(response), "{\"error\":\"Nouveau mot de passe manquant\"}");
+        if (!recovery_token || !new_password) {
+            snprintf(response, sizeof(response), "{\"error\":\"Token de récupération et mot de passe requis\"}");
             send_response(socket, ssl, 400, "application/json", response);
+            if (recovery_token) free(recovery_token);
+            if (new_password) {
+                secure_zero_memory(new_password, strlen(new_password));
+                free(new_password);
+            }
             return;
         }
         
@@ -859,13 +927,43 @@ void handle_api_request(int socket, SSL *ssl, const char *method, const char *pa
             snprintf(response, sizeof(response), "{\"error\":\"Le mot de passe doit faire au moins 12 caractères\"}");
             send_response(socket, ssl, 400, "application/json", response);
             secure_zero_memory(new_password, strlen(new_password));
+            free(recovery_token);
             free(new_password);
             return;
         }
         
         pthread_mutex_lock(&db_mutex);
         
-        // Générer nouveau sel et hash
+        unsigned char token_hash_raw[crypto_generichash_BYTES];
+        crypto_generichash(token_hash_raw, sizeof(token_hash_raw), 
+                          (unsigned char*)recovery_token, strlen(recovery_token), 
+                          NULL, 0);
+        
+        char token_hash[crypto_generichash_BYTES * 2 + 1];
+        sodium_bin2hex(token_hash, sizeof(token_hash), token_hash_raw, sizeof(token_hash_raw));
+        
+        UserAccount user;
+        if (!db_get_user(&db, &user)) {
+            snprintf(response, sizeof(response), "{\"error\":\"Utilisateur introuvable\"}");
+            send_response(socket, ssl, 404, "application/json", response);
+            pthread_mutex_unlock(&db_mutex);
+            secure_zero_memory(new_password, strlen(new_password));
+            free(recovery_token);
+            free(new_password);
+            return;
+        }
+        
+        if (!db_validate_recovery_token(&db, user.id, token_hash)) {
+            snprintf(response, sizeof(response), "{\"error\":\"Token invalide ou expiré\"}");
+            send_response(socket, ssl, 401, "application/json", response);
+            db_log_attempt(&db, "RESET_FAILED_INVALID_TOKEN", 0, ip);
+            pthread_mutex_unlock(&db_mutex);
+            secure_zero_memory(new_password, strlen(new_password));
+            free(recovery_token);
+            free(new_password);
+            return;
+        }
+        
         char salt[32];
         char hash[128];
         generate_salt(salt, sizeof(salt));
@@ -875,12 +973,12 @@ void handle_api_request(int socket, SSL *ssl, const char *method, const char *pa
             send_response(socket, ssl, 500, "application/json", response);
             pthread_mutex_unlock(&db_mutex);
             secure_zero_memory(new_password, strlen(new_password));
+            free(recovery_token);
             free(new_password);
             return;
         }
         
-        // Mettre à jour l'utilisateur
-        const char *update_sql = "UPDATE users SET master_hash = ?, salt = ? WHERE id = (SELECT MAX(id) FROM users)";
+        const char *update_sql = "UPDATE users SET master_hash = ?, salt = ? WHERE id = ?";
         sqlite3_stmt *stmt;
         
         if (sqlite3_prepare_v2(db.db, update_sql, -1, &stmt, NULL) != SQLITE_OK) {
@@ -888,31 +986,35 @@ void handle_api_request(int socket, SSL *ssl, const char *method, const char *pa
             send_response(socket, ssl, 500, "application/json", response);
             pthread_mutex_unlock(&db_mutex);
             secure_zero_memory(new_password, strlen(new_password));
+            free(recovery_token);
             free(new_password);
             return;
         }
         
         sqlite3_bind_text(stmt, 1, hash, -1, SQLITE_STATIC);
         sqlite3_bind_text(stmt, 2, salt, -1, SQLITE_STATIC);
+        sqlite3_bind_int(stmt, 3, user.id);
         
         int rc = sqlite3_step(stmt);
         sqlite3_finalize(stmt);
         
-        pthread_mutex_unlock(&db_mutex);
-        
         if (rc == SQLITE_DONE) {
+            db_invalidate_recovery_token(&db, token_hash);
+            db_log_attempt(&db, "RESET_SUCCESS", 1, ip);
             snprintf(response, sizeof(response), "{\"success\":true,\"message\":\"Mot de passe réinitialisé avec succès\"}");
             send_response(socket, ssl, 200, "application/json", response);
-            printf("✅ Mot de passe principal réinitialisé\n");
+            printf("✅ Mot de passe réinitialisé avec token pour user ID: %d\n", user.id);
         } else {
             snprintf(response, sizeof(response), "{\"error\":\"Erreur lors de la réinitialisation\"}");
             send_response(socket, ssl, 500, "application/json", response);
         }
         
+        pthread_mutex_unlock(&db_mutex);
         secure_zero_memory(new_password, strlen(new_password));
+        free(recovery_token);
         free(new_password);
         return;
-    }
+    }    
     
     snprintf(response, sizeof(response), "{\"error\":\"Route non implementee\"}");
     send_response(socket, ssl, 404, "application/json", response);

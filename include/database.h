@@ -2,6 +2,7 @@
 #define DATABASE_H
 
 #include <sqlite3.h>
+#include <time.h>
 #include "config.h"
 
 typedef struct {
@@ -112,5 +113,10 @@ int db_verify_recovery_code(Database *db, const char *code);
 int db_increment_recovery_attempts(Database *db);
 int db_reset_recovery_attempts(Database *db);
 int db_lock_recovery_until(Database *db, const char *until_time);
+
+int db_store_recovery_token(Database *db, int user_id, const char *token_hash, time_t expires_at);
+int db_validate_recovery_token(Database *db, int user_id, const char *token_hash);
+int db_invalidate_recovery_token(Database *db, const char *token_hash);
+int db_cleanup_expired_tokens(Database *db);
 
 #endif

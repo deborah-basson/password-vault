@@ -545,3 +545,83 @@ int db_get_password_decrypted(Database *db, int id, PasswordEntry *entry,
     
     return 1;
 }
+
+int db_store_recovery_token(Database *db, int user_id, const char *token_hash, time_t expires_at) {
+    const char *sql = "INSERT INTO recovery_tokens (user_id, token_hash, expires_at) VALUES (?, ?, ?)";
+    sqlite3_stmt *stmt;
+    
+    if (sqlite3_prepare_v2(db->db, sql, -1, &stmt, NULL) != SQLITE_OK) {
+        fprintf(stderr, "❌ Erreur préparation store_recovery_token: %s\n", sqlite3_errmsg(db->db));
+        return 0;
+    }
+    
+    sqlite3_bind_int(stmt, 1, user_id);
+    sqlite3_bind_text(stmt, 2, token_hash, -1, SQLITE_STATIC);
+    sqlite3_bind_int64(stmt, 3, (sqlite3_int64)expires_at);
+    
+    int rc = sqlite3_step(stmt);
+    sqlite3_finalize(stmt);
+    
+    return (rc == SQLITE_DONE);
+}
+
+int db_validate_recovery_token(Database *db, int user_id, const char *token_hash) {
+    const char *sql = "SELECT id, expires_at, used FROM recovery_tokens WHERE user_id = ? AND token_hash = ?";
+    sqlite3_stmt *stmt;
+    
+    if (sqlite3_prepare_v2(db->db, sql, -1, &stmt, NULL) != SQLITE_OK) {
+        fprintf(stderr, "❌ Erreur préparation validate_recovery_token: %s\n", sqlite3_errmsg(db->db));
+        return 0;
+    }
+    
+    sqlite3_bind_int(stmt, 1, user_id);
+    sqlite3_bind_text(stmt, 2, token_hash, -1, SQLITE_STATIC);
+    
+    int valid = 0;
+    if (sqlite3_step(stmt) == SQLITE_ROW) {
+        time_t expires_at = (time_t)sqlite3_column_int64(stmt, 1);
+        int used = sqlite3_column_int(stmt, 2);
+        time_t now = time(NULL);
+        
+        if (!used && now < expires_at) {
+            valid = 1;
+        }
+    }
+    
+    sqlite3_finalize(stmt);
+    return valid;
+}
+
+int db_invalidate_recovery_token(Database *db, const char *token_hash) {
+    const char *sql = "UPDATE recovery_tokens SET used = 1 WHERE token_hash = ?";
+    sqlite3_stmt *stmt;
+    
+    if (sqlite3_prepare_v2(db->db, sql, -1, &stmt, NULL) != SQLITE_OK) {
+        fprintf(stderr, "❌ Erreur préparation invalidate_recovery_token: %s\n", sqlite3_errmsg(db->db));
+        return 0;
+    }
+    
+    sqlite3_bind_text(stmt, 1, token_hash, -1, SQLITE_STATIC);
+    
+    int rc = sqlite3_step(stmt);
+    sqlite3_finalize(stmt);
+    
+    return (rc == SQLITE_DONE);
+}
+
+int db_cleanup_expired_tokens(Database *db) {
+    time_t now = time(NULL);
+    const char *sql = "DELETE FROM recovery_tokens WHERE expires_at < ?";
+    sqlite3_stmt *stmt;
+    
+    if (sqlite3_prepare_v2(db->db, sql, -1, &stmt, NULL) != SQLITE_OK) {
+        return 0;
+    }
+    
+    sqlite3_bind_int64(stmt, 1, (sqlite3_int64)now);
+    
+    int rc = sqlite3_step(stmt);
+    sqlite3_finalize(stmt);
+    
+    return (rc == SQLITE_DONE);
+}

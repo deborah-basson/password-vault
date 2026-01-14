@@ -165,3 +165,22 @@ BEGIN
     );
 END;
 
+CREATE TABLE IF NOT EXISTS recovery_tokens (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER NOT NULL,
+    token_hash TEXT NOT NULL UNIQUE,
+    created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+    expires_at INTEGER NOT NULL,
+    used INTEGER DEFAULT 0,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+);
+
+CREATE INDEX IF NOT EXISTS idx_recovery_tokens_hash 
+    ON recovery_tokens(token_hash);
+
+CREATE INDEX IF NOT EXISTS idx_recovery_tokens_expiry 
+    ON recovery_tokens(expires_at);
+
+CREATE INDEX IF NOT EXISTS idx_recovery_tokens_user 
+    ON recovery_tokens(user_id);
+
