@@ -746,9 +746,12 @@ void handle_api_request(int socket, SSL *ssl, const char *method, const char *pa
             int answers_valid = db_verify_security_answers(&db, answer1, answer2, answer3);
             pthread_mutex_unlock(&db_mutex);
             
-            if (answers_valid) {
+            if (answers_valid == 1) {
                 snprintf(response, sizeof(response), "{\"success\":true,\"message\":\"Réponses correctes\"}");
                 send_response(socket, ssl, 200, "application/json", response);
+            } else if (answers_valid == -1) {
+                snprintf(response, sizeof(response), "{\"error\":\"Compte verrouillé. Réessayez plus tard.\"}");
+                send_response(socket, ssl, 423, "application/json", response);
             } else {
                 snprintf(response, sizeof(response), "{\"error\":\"Réponses incorrectes\"}");
                 send_response(socket, ssl, 401, "application/json", response);
