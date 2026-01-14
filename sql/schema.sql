@@ -1,7 +1,5 @@
 -- ============================================
 -- SCHEMA BASE DE DONNÉES - PASSWORD VAULT
--- Version: 2.0
--- Description: Structure sécurisée avec historique des mots de passe
 -- ============================================
 
 -- Table des utilisateurs
@@ -130,42 +128,34 @@ CREATE INDEX IF NOT EXISTS idx_user_policies
     ON user_security_policies(user_id);
 
 -- ============================================
--- TRIGGERS POUR MISE À JOUR AUTOMATIQUE
+-- TRIGGERS
 -- ============================================
+
+-- Trigger pour sauvegarder l'historique avant modification
+CREATE TRIGGER IF NOT EXISTS backup_password_history 
+    BEFORE UPDATE OF encrypted_password ON passwords
+    FOR EACH ROW
+BEGIN
+    INSERT INTO password_history (password_id, encrypted_password, website, username)
+    VALUES (OLD.id, OLD.encrypted_password, OLD.website, OLD.username);
+END;
+
+-- Trigger pour mettre à jour updated_at sur passwords
+CREATE TRIGGER IF NOT EXISTS update_passwords_timestamp 
+    AFTER UPDATE OF encrypted_password ON passwords
+    FOR EACH ROW
+    WHEN NEW.updated_at = OLD.updated_at
+BEGIN
+    UPDATE passwords SET updated_at = CURRENT_TIMESTAMP WHERE id = NEW.id;
+END;
 
 -- Trigger pour mettre à jour updated_at sur users
 CREATE TRIGGER IF NOT EXISTS update_users_timestamp 
     AFTER UPDATE ON users
     FOR EACH ROW
+    WHEN NEW.updated_at = OLD.updated_at
 BEGIN
     UPDATE users SET updated_at = CURRENT_TIMESTAMP WHERE id = NEW.id;
-END;
-
--- Trigger pour mettre à jour updated_at sur passwords
-CREATE TRIGGER IF NOT EXISTS update_passwords_timestamp 
-    AFTER UPDATE ON passwords
-    FOR EACH ROW
-BEGIN
-    UPDATE passwords SET updated_at = CURRENT_TIMESTAMP WHERE id = NEW.id;
-END;
-
--- Trigger pour sauvegarder dans l'historique lors de la modification
-CREATE TRIGGER IF NOT EXISTS backup_password_history 
-    AFTER UPDATE OF encrypted_password ON passwords
-    FOR EACH ROW
-BEGIN
-    INSERT INTO password_history (password_id, encrypted_password, website, username)
-    VALUES (OLD.id, OLD.encrypted_password, OLD.website, OLD.username);
-    
-    -- Supprimer les anciennes entrées au-delà de la limite
-    DELETE FROM password_history 
-    WHERE password_id = OLD.id 
-    AND id NOT IN (
-        SELECT id FROM password_history 
-        WHERE password_id = OLD.id 
-        ORDER BY changed_at DESC 
-        LIMIT (SELECT COALESCE(password_history_size, 5) FROM user_security_policies WHERE user_id = OLD.user_id)
-    );
 END;
 
 CREATE TABLE IF NOT EXISTS recovery_tokens (
@@ -186,4 +176,3 @@ CREATE INDEX IF NOT EXISTS idx_recovery_tokens_expiry
 
 CREATE INDEX IF NOT EXISTS idx_recovery_tokens_user 
     ON recovery_tokens(user_id);
-

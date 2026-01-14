@@ -81,7 +81,8 @@ Test(crypto, generate_secure_password) {
     printf("[TEST] Génération de mot de passe sécurisé\n");
     fflush(stdout);
     
-    char password[32];
+    char password[256];
+    memset(password, 0, sizeof(password));
     generate_secure_password(password, 20);
     
     cr_assert(strlen(password) >= 12);

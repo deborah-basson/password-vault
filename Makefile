@@ -1,10 +1,7 @@
-# ============================================
-# MAKEFILE - PASSWORD VAULT (HTTPS UNIQUEMENT)
-# ============================================
-
 CC = gcc
-CFLAGS = -Wall -Wextra -std=c11 -pthread -O2 -Wno-unused-result
-LDFLAGS = -lsqlite3 -lsodium -lssl -lcrypto -lpthread
+CFLAGS = -Wall -Wextra -Werror -std=c11 -pthread -O2 -Wno-unused-result -fstack-protector-strong -D_FORTIFY_SOURCE=2 -Wformat -Wformat-security -fPIE
+LDFLAGS = -pie -lsqlite3 -lsodium -lssl -lcrypto -lpthread
+SANITIZE_FLAGS = -fsanitize=address -fsanitize=undefined -fno-omit-frame-pointer -g
 
 SRC_DIR = src
 INCLUDE_DIR = include
@@ -31,7 +28,7 @@ BLUE = \033[0;34m
 YELLOW = \033[0;33m
 NC = \033[0m
 
-.PHONY: all clean clean-all reset run setup install test ssl help kill status docker-build docker-run docker-stop docker-test docker-clean docker-logs docker-shell valgrind analyze
+.PHONY: all clean clean-all reset run setup install test ssl help kill status docker-build docker-run docker-stop docker-test docker-clean docker-logs docker-shell valgrind analyze test-asan test-valgrind
 
 all: setup $(EXECUTABLE)
 	@echo "$(GREEN)✓ Compilation réussie!$(NC)"
@@ -108,6 +105,10 @@ install:
 		echo "$(YELLOW)→ Installation de Criterion...$(NC)"; \
 		sudo apt-get install -y libcriterion-dev; \
 	}
+	@command -v valgrind >/dev/null 2>&1 || { \
+		echo "$(YELLOW)→ Installation de Valgrind...$(NC)"; \
+		sudo apt-get install -y valgrind; \
+	}
 	@echo "$(GREEN)✓ Dépendances installées$(NC)"
 
 ssl:
@@ -139,6 +140,25 @@ test: setup $(TEST_EXEC)
 	@echo "$(BLUE)→ Exécution de la suite de tests...$(NC)"
 	@./$(TEST_EXEC) --jobs=1 --verbose || true
 	@echo "$(GREEN)✓ Tests terminés$(NC)"
+
+test-asan: CFLAGS += $(SANITIZE_FLAGS)
+test-asan: LDFLAGS += $(SANITIZE_FLAGS)
+test-asan: clean setup
+	@echo "$(BLUE)→ Compilation avec AddressSanitizer...$(NC)"
+	@$(MAKE) $(EXECUTABLE) CFLAGS="$(CFLAGS)" LDFLAGS="$(LDFLAGS)"
+	@echo "$(GREEN)✓ Build ASAN prêt$(NC)"
+	@echo "$(YELLOW)→ Lancez: ./$(EXECUTABLE) pour tester$(NC)"
+
+test-valgrind: all
+	@echo "$(BLUE)→ Test mémoire avec Valgrind...$(NC)"
+	@rm -f vault.db valgrind.log
+	@valgrind --leak-check=full --show-leak-kinds=all --error-exitcode=1 \
+		--log-file=valgrind.log --suppressions=/dev/null \
+		timeout 5 ./$(EXECUTABLE) 2>&1 || true
+	@if [ -f valgrind.log ]; then \
+		echo "$(YELLOW)→ Rapport disponible: valgrind.log$(NC)"; \
+		grep -E "ERROR SUMMARY|definitely lost|indirectly lost" valgrind.log || true; \
+	fi
 
 valgrind: setup $(TEST_EXEC)
 	@echo "$(BLUE)→ Analyse mémoire avec Valgrind...$(NC)"
@@ -217,6 +237,8 @@ help:
 	@echo "$(BLUE)╠════════════════════════════════════════════════╣$(NC)"
 	@echo "$(BLUE)║$(NC) make run           - Lancer le serveur (HTTPS)  $(BLUE)║$(NC)"
 	@echo "$(BLUE)║$(NC) make test          - Exécuter les tests         $(BLUE)║$(NC)"
+	@echo "$(BLUE)║$(NC) make test-asan     - Build avec AddressSanitizer$(BLUE)║$(NC)"
+	@echo "$(BLUE)║$(NC) make test-valgrind - Test avec Valgrind         $(BLUE)║$(NC)"
 	@echo "$(BLUE)║$(NC) make valgrind      - Analyse mémoire            $(BLUE)║$(NC)"
 	@echo "$(BLUE)║$(NC) make analyze       - Analyse statique           $(BLUE)║$(NC)"
 	@echo "$(BLUE)║$(NC) make clean         - Nettoyer (garde la BD)     $(BLUE)║$(NC)"

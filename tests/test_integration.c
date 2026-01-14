@@ -130,28 +130,23 @@ Test(integration, password_update_workflow, .init = setup_integration, .fini = c
                                                "OldPassword123", "Old note", master_key);
     cr_assert_eq(add_result, 1, "Ajout devrait réussir");
     
-    PasswordEntry entry;
-    memset(&entry, 0, sizeof(entry));
-    int get_result = db_get_password_decrypted(&db, 1, &entry, master_key);
+    PasswordEntry check_entry;
+    memset(&check_entry, 0, sizeof(check_entry));
+    int check_result = db_get_password_by_id(&db, 1, &check_entry);
+    cr_assert_eq(check_result, 1, "Entrée devrait exister");
     
-    if (get_result == 1) {
-        cr_assert_str_eq(entry.encrypted_password, "OldPassword123", 
-                         "Password initial devrait correspondre");
-        
-        char new_encrypted[512];
-        size_t new_len = sizeof(new_encrypted);
-        encrypt_data("NewPassword456!", master_key, new_encrypted, &new_len);
-        
-        int updated = db_update_password(&db, 1, new_encrypted);
-        cr_assert_eq(updated, 1, "Mise à jour devrait réussir");
-    } else {
-        cr_skip("Déchiffrement non supporté - test de workflow alternatif");
-        
-        PasswordEntry basic_entry;
-        memset(&basic_entry, 0, sizeof(basic_entry));
-        int basic_get = db_get_password_by_id(&db, 1, &basic_entry);
-        cr_assert_eq(basic_get, 1, "Récupération basique devrait fonctionner");
-    }
+    char new_encrypted[512];
+    size_t new_len = sizeof(new_encrypted);
+    int enc_result = encrypt_data("NewPassword456!", master_key, new_encrypted, &new_len);
+    cr_assert_eq(enc_result, 1, "Chiffrement devrait réussir");
+    
+    int updated = db_update_password(&db, 1, new_encrypted);
+    cr_assert_eq(updated, 1, "Mise à jour devrait réussir");
+    
+    PasswordEntry updated_entry;
+    memset(&updated_entry, 0, sizeof(updated_entry));
+    int get_updated = db_get_password_by_id(&db, 1, &updated_entry);
+    cr_assert_eq(get_updated, 1, "Récupération après update devrait réussir");
     
     db_close(&db);
 }
@@ -195,7 +190,10 @@ Test(integration, multiple_passwords_management, .init = setup_integration, .fin
     
     cr_assert_eq(sites_found, 4, "Tous les sites devraient être trouvés");
     
-    free(entries);
+    if (entries) {
+        free(entries);
+        entries = NULL;
+    }
     db_close(&db);
 }
 

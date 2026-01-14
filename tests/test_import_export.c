@@ -21,12 +21,20 @@ void cleanup_import_export_test(void) {
     unlink("test_export.enc");
 }
 
+static void create_test_user(Database *db) {
+    const char *hash = "$argon2id$test$hash";
+    const char *salt = "testsalt123";
+    const char *totp = "TESTTOTP123";
+    db_create_user(db, hash, salt, totp);
+}
+
 Test(import_export, export_to_memory, .init = setup_import_export_test, .fini = cleanup_import_export_test) {
     printf("[TEST IMPORT/EXPORT] Export vers mémoire\n");
     fflush(stdout);
     
     Database db;
     db_init(&db);
+    create_test_user(&db);
     
     db_add_password(&db, "github.com", "user1", "encrypted_pass1", "note1");
     db_add_password(&db, "google.com", "user2", "encrypted_pass2", "note2");
@@ -42,7 +50,10 @@ Test(import_export, export_to_memory, .init = setup_import_export_test, .fini = 
     cr_assert_gt(exported_len, 0, "Taille exportée doit être > 0");
     
     secure_zero_memory(exported_data, exported_len);
-    free(exported_data);
+    if (exported_data) {
+        free(exported_data);
+        exported_data = NULL;
+    }
     db_close(&db);
 }
 
@@ -52,6 +63,7 @@ Test(import_export, export_and_import_memory, .init = setup_import_export_test, 
     
     Database db1, db2;
     db_init(&db1);
+    create_test_user(&db1);
     
     db_add_password(&db1, "site1.com", "user1", "pass1", "notes1");
     db_add_password(&db1, "site2.com", "user2", "pass2", "notes2");
@@ -66,6 +78,7 @@ Test(import_export, export_and_import_memory, .init = setup_import_export_test, 
     
     unlink("vault.db");
     db_init(&db2);
+    create_test_user(&db2);
     
     int imported = import_passwords_encrypted(&db2, exported_data, exported_len, "TestPass123!");
     cr_assert_eq(imported, 2, "Devrait importer 2 mots de passe");
@@ -78,9 +91,15 @@ Test(import_export, export_and_import_memory, .init = setup_import_export_test, 
     cr_assert_str_eq(entries[0].website, "site1.com");
     cr_assert_str_eq(entries[1].website, "site2.com");
     
-    free(entries);
+    if (entries) {
+        free(entries);
+        entries = NULL;
+    }
     secure_zero_memory(exported_data, exported_len);
-    free(exported_data);
+    if (exported_data) {
+        free(exported_data);
+        exported_data = NULL;
+    }
     db_close(&db2);
 }
 
@@ -90,6 +109,7 @@ Test(import_export, export_and_import_file, .init = setup_import_export_test, .f
     
     Database db1, db2;
     db_init(&db1);
+    create_test_user(&db1);
     
     db_add_password(&db1, "website1.com", "username1", "encpass1", "note1");
     db_add_password(&db1, "website2.com", "username2", "encpass2", "note2");
@@ -102,6 +122,7 @@ Test(import_export, export_and_import_file, .init = setup_import_export_test, .f
     
     unlink("vault.db");
     db_init(&db2);
+    create_test_user(&db2);
     
     int imported = import_vault_from_file(&db2, "test_export.enc", "FilePassword456!");
     cr_assert_eq(imported, 3, "Devrait importer 3 mots de passe");
@@ -112,7 +133,10 @@ Test(import_export, export_and_import_file, .init = setup_import_export_test, .f
     
     cr_assert_eq(count, 3, "Devrait avoir 3 mots de passe");
     
-    free(entries);
+    if (entries) {
+        free(entries);
+        entries = NULL;
+    }
     db_close(&db2);
 }
 
@@ -122,6 +146,7 @@ Test(import_export, import_wrong_password, .init = setup_import_export_test, .fi
     
     Database db1, db2;
     db_init(&db1);
+    create_test_user(&db1);
     
     db_add_password(&db1, "test.com", "user", "pass", "note");
     
@@ -132,12 +157,16 @@ Test(import_export, import_wrong_password, .init = setup_import_export_test, .fi
     db_close(&db1);
     
     db_init(&db2);
+    create_test_user(&db2);
     
     int imported = import_passwords_encrypted(&db2, exported_data, exported_len, "WrongPass!");
     cr_assert_eq(imported, 0, "Import avec mauvais mot de passe devrait échouer");
     
     secure_zero_memory(exported_data, exported_len);
-    free(exported_data);
+    if (exported_data) {
+        free(exported_data);
+        exported_data = NULL;
+    }
     db_close(&db2);
 }
 
@@ -147,6 +176,7 @@ Test(import_export, export_empty_vault, .init = setup_import_export_test, .fini 
     
     Database db;
     db_init(&db);
+    create_test_user(&db);
     
     char *exported_data = NULL;
     size_t exported_len = 0;
@@ -156,7 +186,10 @@ Test(import_export, export_empty_vault, .init = setup_import_export_test, .fini 
     cr_assert_not_null(exported_data);
     
     secure_zero_memory(exported_data, exported_len);
-    free(exported_data);
+    if (exported_data) {
+        free(exported_data);
+        exported_data = NULL;
+    }
     db_close(&db);
 }
 
@@ -166,6 +199,7 @@ Test(import_export, import_preserves_encryption, .init = setup_import_export_tes
     
     Database db1, db2;
     db_init(&db1);
+    create_test_user(&db1);
     
     const char *original_encrypted = "AES_ENCRYPTED_DATA_HERE";
     db_add_password(&db1, "secure.com", "user", original_encrypted, "");
@@ -178,6 +212,7 @@ Test(import_export, import_preserves_encryption, .init = setup_import_export_tes
     
     unlink("vault.db");
     db_init(&db2);
+    create_test_user(&db2);
     
     import_passwords_encrypted(&db2, exported_data, exported_len, "ExportPass!");
     
@@ -188,7 +223,10 @@ Test(import_export, import_preserves_encryption, .init = setup_import_export_tes
                      "Le mot de passe chiffré devrait être préservé");
     
     secure_zero_memory(exported_data, exported_len);
-    free(exported_data);
+    if (exported_data) {
+        free(exported_data);
+        exported_data = NULL;
+    }
     db_close(&db2);
 }
 
@@ -198,6 +236,7 @@ Test(import_export, large_vault_export_import, .init = setup_import_export_test,
     
     Database db1, db2;
     db_init(&db1);
+    create_test_user(&db1);
     
     for (int i = 0; i < 50; i++) {
         char website[256], username[256], password[256], notes[256];
@@ -219,11 +258,15 @@ Test(import_export, large_vault_export_import, .init = setup_import_export_test,
     
     unlink("vault.db");
     db_init(&db2);
+    create_test_user(&db2);
     
     int imported = import_passwords_encrypted(&db2, exported_data, exported_len, "LargeVaultPass!");
     cr_assert_eq(imported, 50, "Devrait importer 50 mots de passe");
     
     secure_zero_memory(exported_data, exported_len);
-    free(exported_data);
+    if (exported_data) {
+        free(exported_data);
+        exported_data = NULL;
+    }
     db_close(&db2);
 }

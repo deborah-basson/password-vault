@@ -59,14 +59,15 @@ void generate_salt(char *salt, size_t length) {
 
 void generate_secure_password(char *password, int length) {
     if (length < 12) length = 12;
+    if (length > 255) length = 255;
     
     const char lowercase[] = "abcdefghijklmnopqrstuvwxyz";
     const char uppercase[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
     const char digits[] = "0123456789";
     const char symbols[] = "!@#$%^&*()_+-=[]{}|;:,.<>?";
     
-    unsigned char random_bytes[256];
-    randombytes_buf(random_bytes, length);
+    unsigned char random_bytes[512];
+    randombytes_buf(random_bytes, sizeof(random_bytes));
     
     password[0] = lowercase[random_bytes[0] % 26];
     password[1] = uppercase[random_bytes[1] % 26];
@@ -160,7 +161,10 @@ int encrypt_data(const char *plaintext, const char *key, char *ciphertext, size_
         nonce,
         derived_key
     ) != 0) {
-        free(binary_cipher);
+        if (binary_cipher) {
+            free(binary_cipher);
+            binary_cipher = NULL;
+        }
         return 0;
     }
     
@@ -168,13 +172,19 @@ int encrypt_data(const char *plaintext, const char *key, char *ciphertext, size_
     
     size_t b64_maxlen = sodium_base64_ENCODED_LEN(total_binary_len, sodium_base64_VARIANT_ORIGINAL);
     if (b64_maxlen > *cipher_len) {
-        free(binary_cipher);
+        if (binary_cipher) {
+            free(binary_cipher);
+            binary_cipher = NULL;
+        }
         return 0;
     }
     
     sodium_bin2base64(ciphertext, *cipher_len, binary_cipher, total_binary_len, sodium_base64_VARIANT_ORIGINAL);
     
-    free(binary_cipher);
+    if (binary_cipher) {
+        free(binary_cipher);
+        binary_cipher = NULL;
+    }
     *cipher_len = strlen(ciphertext);
     return 1;
 }
@@ -192,12 +202,18 @@ int decrypt_data(const char *ciphertext, size_t cipher_len, const char *key, cha
     
     if (sodium_base642bin(binary_cipher, max_binary_len, ciphertext, cipher_len,
                          NULL, &binary_len, NULL, sodium_base64_VARIANT_ORIGINAL) != 0) {
-        free(binary_cipher);
+        if (binary_cipher) {
+            free(binary_cipher);
+            binary_cipher = NULL;
+        }
         return 0;
     }
     
     if (binary_len < crypto_aead_aes256gcm_NPUBBYTES + crypto_aead_aes256gcm_ABYTES) {
-        free(binary_cipher);
+        if (binary_cipher) {
+            free(binary_cipher);
+            binary_cipher = NULL;
+        }
         return 0;
     }
     
@@ -221,12 +237,18 @@ int decrypt_data(const char *ciphertext, size_t cipher_len, const char *key, cha
         nonce,
         derived_key
     ) != 0) {
-        free(binary_cipher);
+        if (binary_cipher) {
+            free(binary_cipher);
+            binary_cipher = NULL;
+        }
         return 0;
     }
     
     plaintext[plaintext_len] = '\0';
-    free(binary_cipher);
+    if (binary_cipher) {
+        free(binary_cipher);
+        binary_cipher = NULL;
+    }
     return 1;
 }
 
@@ -371,8 +393,7 @@ void generate_secure_passphrase(char *output, int length) {
     output[0] = '\0';
     size_t current_len = 0;
     
-    // Générer 3-4 mots aléatoires
-    int word_num = 3 + (random_bytes[0] % 2); // 3 ou 4 mots
+    int word_num = 3 + (random_bytes[0] % 2);
     
     for (int i = 0; i < word_num && current_len < (size_t)length - 8; i++) {
         if (i > 0) {
@@ -386,7 +407,6 @@ void generate_secure_passphrase(char *output, int length) {
         current_len += strlen(word);
     }
     
-    // Ajouter un suffixe numérique et symbolique
     if (current_len < (size_t)length - 4) {
         char suffix[16];
         snprintf(suffix, sizeof(suffix), "%c%02d%c", 

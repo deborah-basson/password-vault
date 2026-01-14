@@ -34,12 +34,21 @@ static int execute_sql_file(sqlite3 *db, const char *filename) {
     
     if (rc != SQLITE_OK) {
         fprintf(stderr, "❌ Erreur SQL dans %s: %s\n", filename, err_msg);
-        sqlite3_free(err_msg);
-        free(sql);
+        if (err_msg) {
+            sqlite3_free(err_msg);
+            err_msg = NULL;
+        }
+        if (sql) {
+            free(sql);
+            sql = NULL;
+        }
         return 0;
     }
     
-    free(sql);
+    if (sql) {
+        free(sql);
+        sql = NULL;
+    }
     return 1;
 }
 
@@ -116,7 +125,10 @@ int db_init(Database *db) {
         char *err_msg = NULL;
         if (sqlite3_exec(db->db, minimal_schema, NULL, NULL, &err_msg) != SQLITE_OK) {
             fprintf(stderr, "❌ Erreur création schéma: %s\n", err_msg);
-            sqlite3_free(err_msg);
+            if (err_msg) {
+                sqlite3_free(err_msg);
+                err_msg = NULL;
+            }
             return 0;
         }
     }
@@ -140,7 +152,7 @@ void db_close(Database *db) {
 
 int db_create_user(Database *db, const char *master_hash, const char *salt, const char *totp_secret) {
     const char *sql = "INSERT INTO users (master_hash, salt, totp_secret, is_2fa_enabled) VALUES (?, ?, ?, 0)";
-    sqlite3_stmt *stmt;
+    sqlite3_stmt *stmt = NULL;
     
     if (sqlite3_prepare_v2(db->db, sql, -1, &stmt, NULL) != SQLITE_OK) {
         fprintf(stderr, "❌ Erreur préparation requête: %s\n", sqlite3_errmsg(db->db));
@@ -152,7 +164,10 @@ int db_create_user(Database *db, const char *master_hash, const char *salt, cons
     sqlite3_bind_text(stmt, 3, totp_secret, -1, SQLITE_STATIC);
     
     int rc = sqlite3_step(stmt);
-    sqlite3_finalize(stmt);
+    if (stmt) {
+        sqlite3_finalize(stmt);
+        stmt = NULL;
+    }
     
     if (rc != SQLITE_DONE) {
         fprintf(stderr, "❌ Erreur création utilisateur: %s\n", sqlite3_errmsg(db->db));
@@ -164,7 +179,7 @@ int db_create_user(Database *db, const char *master_hash, const char *salt, cons
 
 int db_get_user(Database *db, UserAccount *user) {
     const char *sql = "SELECT * FROM users ORDER BY id DESC LIMIT 1";
-    sqlite3_stmt *stmt;
+    sqlite3_stmt *stmt = NULL;
     
     if (sqlite3_prepare_v2(db->db, sql, -1, &stmt, NULL) != SQLITE_OK) {
         fprintf(stderr, "❌ Erreur préparation requête: %s\n", sqlite3_errmsg(db->db));
@@ -188,17 +203,23 @@ int db_get_user(Database *db, UserAccount *user) {
         const char *created = (const char*)sqlite3_column_text(stmt, 5);
         if (created) strncpy(user->created_at, created, sizeof(user->created_at) - 1);
         
-        sqlite3_finalize(stmt);
+        if (stmt) {
+            sqlite3_finalize(stmt);
+            stmt = NULL;
+        }
         return 1;
     }
     
-    sqlite3_finalize(stmt);
+    if (stmt) {
+        sqlite3_finalize(stmt);
+        stmt = NULL;
+    }
     return 0;
 }
 
 int db_update_2fa(Database *db, const char *totp_secret, int enabled) {
-    const char *sql = "UPDATE users SET totp_secret = ?, is_2fa_enabled = ? WHERE id = (SELECT MAX(id) FROM users)";
-    sqlite3_stmt *stmt;
+    const char *sql = "UPDATE users SET totp_secret = ?, is_2fa_enabled = ?, updated_at = CURRENT_TIMESTAMP WHERE id = (SELECT MAX(id) FROM users)";
+    sqlite3_stmt *stmt = NULL;
     
     if (sqlite3_prepare_v2(db->db, sql, -1, &stmt, NULL) != SQLITE_OK) {
         return 0;
@@ -208,7 +229,10 @@ int db_update_2fa(Database *db, const char *totp_secret, int enabled) {
     sqlite3_bind_int(stmt, 2, enabled);
     
     int rc = sqlite3_step(stmt);
-    sqlite3_finalize(stmt);
+    if (stmt) {
+        sqlite3_finalize(stmt);
+        stmt = NULL;
+    }
     
     return rc == SQLITE_DONE;
 }
@@ -216,7 +240,7 @@ int db_update_2fa(Database *db, const char *totp_secret, int enabled) {
 int db_add_password(Database *db, const char *website, const char *username, 
                     const char *encrypted_pass, const char *notes) {
     const char *sql = "INSERT INTO passwords (website, username, encrypted_password, notes) VALUES (?, ?, ?, ?)";
-    sqlite3_stmt *stmt;
+    sqlite3_stmt *stmt = NULL;
     
     if (sqlite3_prepare_v2(db->db, sql, -1, &stmt, NULL) != SQLITE_OK) {
         fprintf(stderr, "❌ Erreur préparation requête: %s\n", sqlite3_errmsg(db->db));
@@ -229,7 +253,10 @@ int db_add_password(Database *db, const char *website, const char *username,
     sqlite3_bind_text(stmt, 4, notes ? notes : "", -1, SQLITE_STATIC);
     
     int rc = sqlite3_step(stmt);
-    sqlite3_finalize(stmt);
+    if (stmt) {
+        sqlite3_finalize(stmt);
+        stmt = NULL;
+    }
     
     if (rc != SQLITE_DONE) {
         fprintf(stderr, "❌ Erreur ajout mot de passe: %s\n", sqlite3_errmsg(db->db));
@@ -241,7 +268,7 @@ int db_add_password(Database *db, const char *website, const char *username,
 
 int db_get_all_passwords(Database *db, PasswordEntry **entries, int *count) {
     const char *count_sql = "SELECT COUNT(*) FROM passwords";
-    sqlite3_stmt *count_stmt;
+    sqlite3_stmt *count_stmt = NULL;
     
     if (sqlite3_prepare_v2(db->db, count_sql, -1, &count_stmt, NULL) != SQLITE_OK) {
         fprintf(stderr, "❌ Erreur préparation requête de comptage: %s\n", sqlite3_errmsg(db->db));
@@ -252,7 +279,10 @@ int db_get_all_passwords(Database *db, PasswordEntry **entries, int *count) {
     if (sqlite3_step(count_stmt) == SQLITE_ROW) {
         *count = sqlite3_column_int(count_stmt, 0);
     }
-    sqlite3_finalize(count_stmt);
+    if (count_stmt) {
+        sqlite3_finalize(count_stmt);
+        count_stmt = NULL;
+    }
     
     if (*count == 0) {
         *entries = NULL;
@@ -266,12 +296,14 @@ int db_get_all_passwords(Database *db, PasswordEntry **entries, int *count) {
     }
     
     const char *select_sql = "SELECT * FROM passwords ORDER BY website ASC";
-    sqlite3_stmt *select_stmt;
+    sqlite3_stmt *select_stmt = NULL;
     
     if (sqlite3_prepare_v2(db->db, select_sql, -1, &select_stmt, NULL) != SQLITE_OK) {
         fprintf(stderr, "❌ Erreur préparation requête de sélection: %s\n", sqlite3_errmsg(db->db));
-        free(*entries);
-        *entries = NULL;
+        if (*entries) {
+            free(*entries);
+            *entries = NULL;
+        }
         return 0;
     }
     
@@ -318,13 +350,16 @@ int db_get_all_passwords(Database *db, PasswordEntry **entries, int *count) {
         i++;
     }
     
-    sqlite3_finalize(select_stmt);
+    if (select_stmt) {
+        sqlite3_finalize(select_stmt);
+        select_stmt = NULL;
+    }
     return 1;
 }
 
 int db_get_password_by_id(Database *db, int id, PasswordEntry *entry) {
     const char *sql = "SELECT * FROM passwords WHERE id = ?";
-    sqlite3_stmt *stmt;
+    sqlite3_stmt *stmt = NULL;
     
     if (sqlite3_prepare_v2(db->db, sql, -1, &stmt, NULL) != SQLITE_OK) {
         return 0;
@@ -359,34 +394,54 @@ int db_get_password_by_id(Database *db, int id, PasswordEntry *entry) {
             entry->notes[sizeof(entry->notes) - 1] = '\0';
         }
         
-        sqlite3_finalize(stmt);
+        if (stmt) {
+            sqlite3_finalize(stmt);
+            stmt = NULL;
+        }
         return 1;
     }
     
-    sqlite3_finalize(stmt);
+    if (stmt) {
+        sqlite3_finalize(stmt);
+        stmt = NULL;
+    }
     return 0;
 }
 
 int db_update_password(Database *db, int id, const char *encrypted_pass) {
-    const char *sql = "UPDATE passwords SET encrypted_password = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?";
-    sqlite3_stmt *stmt;
-    
-    if (sqlite3_prepare_v2(db->db, sql, -1, &stmt, NULL) != SQLITE_OK) {
+    if (!db || !encrypted_pass) {
+        fprintf(stderr, "❌ Paramètres invalides pour update_password\n");
         return 0;
     }
     
-    sqlite3_bind_text(stmt, 1, encrypted_pass, -1, SQLITE_STATIC);
+    const char *sql = "UPDATE passwords SET encrypted_password = ? WHERE id = ?";
+    sqlite3_stmt *stmt = NULL;
+    
+    if (sqlite3_prepare_v2(db->db, sql, -1, &stmt, NULL) != SQLITE_OK) {
+        fprintf(stderr, "❌ Erreur préparation update: %s\n", sqlite3_errmsg(db->db));
+        return 0;
+    }
+    
+    sqlite3_bind_text(stmt, 1, encrypted_pass, -1, SQLITE_TRANSIENT);
     sqlite3_bind_int(stmt, 2, id);
     
     int rc = sqlite3_step(stmt);
-    sqlite3_finalize(stmt);
+    if (stmt) {
+        sqlite3_finalize(stmt);
+        stmt = NULL;
+    }
     
-    return rc == SQLITE_DONE;
+    if (rc != SQLITE_DONE) {
+        fprintf(stderr, "❌ Erreur update password (rc=%d): %s\n", rc, sqlite3_errmsg(db->db));
+        return 0;
+    }
+    
+    return 1;
 }
 
 int db_delete_password(Database *db, int id) {
     const char *sql = "DELETE FROM passwords WHERE id = ?";
-    sqlite3_stmt *stmt;
+    sqlite3_stmt *stmt = NULL;
     
     if (sqlite3_prepare_v2(db->db, sql, -1, &stmt, NULL) != SQLITE_OK) {
         fprintf(stderr, "❌ Erreur préparation requête: %s\n", sqlite3_errmsg(db->db));
@@ -396,7 +451,10 @@ int db_delete_password(Database *db, int id) {
     sqlite3_bind_int(stmt, 1, id);
     
     int rc = sqlite3_step(stmt);
-    sqlite3_finalize(stmt);
+    if (stmt) {
+        sqlite3_finalize(stmt);
+        stmt = NULL;
+    }
     
     if (rc != SQLITE_DONE) {
         fprintf(stderr, "❌ Erreur suppression: %s\n", sqlite3_errmsg(db->db));
@@ -408,7 +466,7 @@ int db_delete_password(Database *db, int id) {
 
 int db_log_attempt(Database *db, const char *action, int success, const char *ip) {
     const char *sql = "INSERT INTO login_attempts (action, success, ip_address) VALUES (?, ?, ?)";
-    sqlite3_stmt *stmt;
+    sqlite3_stmt *stmt = NULL;
     
     if (sqlite3_prepare_v2(db->db, sql, -1, &stmt, NULL) != SQLITE_OK) {
         return 0;
@@ -419,7 +477,10 @@ int db_log_attempt(Database *db, const char *action, int success, const char *ip
     sqlite3_bind_text(stmt, 3, ip, -1, SQLITE_STATIC);
     
     int rc = sqlite3_step(stmt);
-    sqlite3_finalize(stmt);
+    if (stmt) {
+        sqlite3_finalize(stmt);
+        stmt = NULL;
+    }
     
     return rc == SQLITE_DONE;
 }
@@ -428,7 +489,7 @@ int db_get_failed_attempts(Database *db, const char *ip, int minutes) {
     const char *sql = "SELECT COUNT(*) FROM login_attempts "
                      "WHERE ip_address = ? AND success = 0 "
                      "AND timestamp > datetime('now', '-' || ? || ' minutes')";
-    sqlite3_stmt *stmt;
+    sqlite3_stmt *stmt = NULL;
     
     if (sqlite3_prepare_v2(db->db, sql, -1, &stmt, NULL) != SQLITE_OK) {
         return -1;
@@ -442,7 +503,10 @@ int db_get_failed_attempts(Database *db, const char *ip, int minutes) {
         count = sqlite3_column_int(stmt, 0);
     }
     
-    sqlite3_finalize(stmt);
+    if (stmt) {
+        sqlite3_finalize(stmt);
+        stmt = NULL;
+    }
     return count;
 }
 
@@ -484,7 +548,7 @@ int db_get_suspicious_ips(Database *db, char ***ips, int *count) {
         "HAVING COUNT(*) >= 3 "
         "ORDER BY attempts DESC";
     
-    sqlite3_stmt *stmt;
+    sqlite3_stmt *stmt = NULL;
     
     if (sqlite3_prepare_v2(db->db, sql, -1, &stmt, NULL) != SQLITE_OK) {
         return 0;
@@ -496,12 +560,23 @@ int db_get_suspicious_ips(Database *db, char ***ips, int *count) {
     }
     
     if (*count == 0) {
-        sqlite3_finalize(stmt);
+        if (stmt) {
+            sqlite3_finalize(stmt);
+            stmt = NULL;
+        }
         *ips = NULL;
         return 1;
     }
     
     *ips = malloc(*count * sizeof(char*));
+    if (!*ips) {
+        if (stmt) {
+            sqlite3_finalize(stmt);
+            stmt = NULL;
+        }
+        return 0;
+    }
+    
     sqlite3_reset(stmt);
     
     int i = 0;
@@ -510,12 +585,32 @@ int db_get_suspicious_ips(Database *db, char ***ips, int *count) {
         int attempts = sqlite3_column_int(stmt, 1);
         
         char *entry = malloc(64);
+        if (!entry) {
+            for (int j = 0; j < i; j++) {
+                if ((*ips)[j]) {
+                    free((*ips)[j]);
+                    (*ips)[j] = NULL;
+                }
+            }
+            if (*ips) {
+                free(*ips);
+                *ips = NULL;
+            }
+            if (stmt) {
+                sqlite3_finalize(stmt);
+                stmt = NULL;
+            }
+            return 0;
+        }
         snprintf(entry, 64, "%s (%d tentatives)", ip, attempts);
         (*ips)[i] = entry;
         i++;
     }
     
-    sqlite3_finalize(stmt);
+    if (stmt) {
+        sqlite3_finalize(stmt);
+        stmt = NULL;
+    }
     return 1;
 }
 
@@ -551,7 +646,7 @@ int db_get_password_decrypted(Database *db, int id, PasswordEntry *entry,
 
 int db_store_recovery_token(Database *db, int user_id, const char *token_hash, time_t expires_at) {
     const char *sql = "INSERT INTO recovery_tokens (user_id, token_hash, expires_at) VALUES (?, ?, ?)";
-    sqlite3_stmt *stmt;
+    sqlite3_stmt *stmt = NULL;
     
     if (sqlite3_prepare_v2(db->db, sql, -1, &stmt, NULL) != SQLITE_OK) {
         fprintf(stderr, "❌ Erreur préparation store_recovery_token: %s\n", sqlite3_errmsg(db->db));
@@ -563,14 +658,17 @@ int db_store_recovery_token(Database *db, int user_id, const char *token_hash, t
     sqlite3_bind_int64(stmt, 3, (sqlite3_int64)expires_at);
     
     int rc = sqlite3_step(stmt);
-    sqlite3_finalize(stmt);
+    if (stmt) {
+        sqlite3_finalize(stmt);
+        stmt = NULL;
+    }
     
     return (rc == SQLITE_DONE);
 }
 
 int db_validate_recovery_token(Database *db, int user_id, const char *token_hash) {
     const char *sql = "SELECT id, expires_at, used FROM recovery_tokens WHERE user_id = ? AND token_hash = ?";
-    sqlite3_stmt *stmt;
+    sqlite3_stmt *stmt = NULL;
     
     if (sqlite3_prepare_v2(db->db, sql, -1, &stmt, NULL) != SQLITE_OK) {
         fprintf(stderr, "❌ Erreur préparation validate_recovery_token: %s\n", sqlite3_errmsg(db->db));
@@ -591,13 +689,16 @@ int db_validate_recovery_token(Database *db, int user_id, const char *token_hash
         }
     }
     
-    sqlite3_finalize(stmt);
+    if (stmt) {
+        sqlite3_finalize(stmt);
+        stmt = NULL;
+    }
     return valid;
 }
 
 int db_invalidate_recovery_token(Database *db, const char *token_hash) {
     const char *sql = "UPDATE recovery_tokens SET used = 1 WHERE token_hash = ?";
-    sqlite3_stmt *stmt;
+    sqlite3_stmt *stmt = NULL;
     
     if (sqlite3_prepare_v2(db->db, sql, -1, &stmt, NULL) != SQLITE_OK) {
         fprintf(stderr, "❌ Erreur préparation invalidate_recovery_token: %s\n", sqlite3_errmsg(db->db));
@@ -607,7 +708,10 @@ int db_invalidate_recovery_token(Database *db, const char *token_hash) {
     sqlite3_bind_text(stmt, 1, token_hash, -1, SQLITE_STATIC);
     
     int rc = sqlite3_step(stmt);
-    sqlite3_finalize(stmt);
+    if (stmt) {
+        sqlite3_finalize(stmt);
+        stmt = NULL;
+    }
     
     return (rc == SQLITE_DONE);
 }
@@ -615,7 +719,7 @@ int db_invalidate_recovery_token(Database *db, const char *token_hash) {
 int db_cleanup_expired_tokens(Database *db) {
     time_t now = time(NULL);
     const char *sql = "DELETE FROM recovery_tokens WHERE expires_at < ?";
-    sqlite3_stmt *stmt;
+    sqlite3_stmt *stmt = NULL;
     
     if (sqlite3_prepare_v2(db->db, sql, -1, &stmt, NULL) != SQLITE_OK) {
         return 0;
@@ -624,7 +728,10 @@ int db_cleanup_expired_tokens(Database *db) {
     sqlite3_bind_int64(stmt, 1, (sqlite3_int64)now);
     
     int rc = sqlite3_step(stmt);
-    sqlite3_finalize(stmt);
+    if (stmt) {
+        sqlite3_finalize(stmt);
+        stmt = NULL;
+    }
     
     return (rc == SQLITE_DONE);
 }

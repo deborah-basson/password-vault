@@ -123,7 +123,10 @@ Test(database, get_all_passwords, .init = setup_database_test, .fini = cleanup_d
     cr_assert_eq(count, 3, "Devrait avoir 3 mots de passe");
     cr_assert_not_null(entries, "Entries ne devrait pas être NULL");
     
-    free(entries);
+    if (entries) {
+        free(entries);
+        entries = NULL;
+    }
     db_close(&db);
 }
 
@@ -135,7 +138,13 @@ Test(database, update_password, .init = setup_database_test, .fini = cleanup_dat
     db_init(&db);
     create_test_user(&db);
     
-    db_add_password(&db, "test.com", "user", "oldpass", "note");
+    int add_result = db_add_password(&db, "test.com", "user", "oldpass", "note");
+    cr_assert_eq(add_result, 1, "Ajout devrait réussir");
+    
+    PasswordEntry check_entry;
+    memset(&check_entry, 0, sizeof(check_entry));
+    int check_result = db_get_password_by_id(&db, 1, &check_entry);
+    cr_assert_eq(check_result, 1, "Entrée devrait exister avant update");
     
     int result = db_update_password(&db, 1, "newpass_encrypted");
     cr_assert_eq(result, 1, "db_update_password devrait réussir");
@@ -144,7 +153,7 @@ Test(database, update_password, .init = setup_database_test, .fini = cleanup_dat
     memset(&entry, 0, sizeof(entry));
     int get_result = db_get_password_by_id(&db, 1, &entry);
     cr_assert_eq(get_result, 1, "Récupération devrait réussir");
-    cr_assert(strlen(entry.encrypted_password) > 0, "Password devrait être présent");
+    cr_assert_str_eq(entry.encrypted_password, "newpass_encrypted", "Password devrait être mis à jour");
     
     db_close(&db);
 }
