@@ -28,7 +28,7 @@ BLUE = \033[0;34m
 YELLOW = \033[0;33m
 NC = \033[0m
 
-.PHONY: all clean clean-all reset run setup install test ssl help kill status docker-build docker-run docker-stop docker-test docker-clean docker-logs docker-shell valgrind analyze test-asan test-valgrind
+.PHONY: all clean clean-all reset run setup install test ssl help kill status valgrind analyze test-asan test-valgrind
 
 all: setup $(EXECUTABLE)
 	@echo "$(GREEN)✓ Compilation réussie!$(NC)"
@@ -175,38 +175,6 @@ analyze:
 		src/ include/
 	@echo "$(GREEN)✓ Analyse terminée$(NC)"
 
-docker-build: all ssl
-	@echo "$(BLUE)→ Construction de l'image Docker...$(NC)"
-	@bash scripts/docker-build.sh
-	@echo "$(GREEN)✓ Image Docker construite$(NC)"
-
-docker-run:
-	@echo "$(BLUE)→ Démarrage du conteneur Docker...$(NC)"
-	@docker-compose up -d
-	@echo "$(GREEN)✓ Conteneur démarré sur https://localhost:8443$(NC)"
-
-docker-stop:
-	@echo "$(BLUE)→ Arrêt du conteneur Docker...$(NC)"
-	@docker-compose down
-	@echo "$(GREEN)✓ Conteneur arrêté$(NC)"
-
-docker-test: docker-build
-	@echo "$(BLUE)→ Test du déploiement Docker...$(NC)"
-	@bash scripts/docker-test.sh
-	@echo "$(GREEN)✓ Tests Docker terminés$(NC)"
-
-docker-clean:
-	@echo "$(BLUE)→ Nettoyage des ressources Docker...$(NC)"
-	@docker-compose down -v 2>/dev/null || true
-	@docker rmi password-vault:latest 2>/dev/null || true
-	@echo "$(GREEN)✓ Nettoyage Docker terminé$(NC)"
-
-docker-logs:
-	@docker-compose logs -f
-
-docker-shell:
-	@docker exec -it password-vault /bin/bash
-
 status:
 	@echo "$(BLUE)╔════════════════════════════════════════╗$(NC)"
 	@echo "$(BLUE)║        📊 ÉTAT DU SYSTÈME 📊          ║$(NC)"
@@ -226,9 +194,6 @@ status:
 	@netstat -tuln 2>/dev/null | grep 8443 >/dev/null && \
 		echo "$(BLUE)║$(NC) 🟢 Port 8443: $(GREEN)ACTIF (HTTPS)$(NC)          $(BLUE)║$(NC)" || \
 		echo "$(BLUE)║$(NC) ⚫ Port 8443: $(YELLOW)LIBRE$(NC)                   $(BLUE)║$(NC)"
-	@docker ps | grep password-vault >/dev/null && \
-		echo "$(BLUE)║$(NC) 🟢 Docker: $(GREEN)ACTIF$(NC)                   $(BLUE)║$(NC)" || \
-		echo "$(BLUE)║$(NC) ⚫ Docker: $(YELLOW)ARRÊTÉ$(NC)                  $(BLUE)║$(NC)"
 	@echo "$(BLUE)╚════════════════════════════════════════╝$(NC)"
 
 help:
@@ -247,14 +212,4 @@ help:
 	@echo "$(BLUE)║$(NC) make status        - Afficher l'état            $(BLUE)║$(NC)"
 	@echo "$(BLUE)║$(NC) make ssl           - Générer certificats SSL    $(BLUE)║$(NC)"
 	@echo "$(BLUE)║$(NC) make install       - Installer dépendances      $(BLUE)║$(NC)"
-	@echo "$(BLUE)╠════════════════════════════════════════════════╣$(NC)"
-	@echo "$(BLUE)║              🐳 DOCKER COMMANDS 🐳             ║$(NC)"
-	@echo "$(BLUE)╠════════════════════════════════════════════════╣$(NC)"
-	@echo "$(BLUE)║$(NC) make docker-build  - Construire l'image Docker $(BLUE)║$(NC)"
-	@echo "$(BLUE)║$(NC) make docker-run    - Démarrer le conteneur     $(BLUE)║$(NC)"
-	@echo "$(BLUE)║$(NC) make docker-stop   - Arrêter le conteneur      $(BLUE)║$(NC)"
-	@echo "$(BLUE)║$(NC) make docker-test   - Tester le déploiement     $(BLUE)║$(NC)"
-	@echo "$(BLUE)║$(NC) make docker-clean  - Nettoyer Docker           $(BLUE)║$(NC)"
-	@echo "$(BLUE)║$(NC) make docker-logs   - Voir les logs             $(BLUE)║$(NC)"
-	@echo "$(BLUE)║$(NC) make docker-shell  - Accéder au conteneur      $(BLUE)║$(NC)"
 	@echo "$(BLUE)╚════════════════════════════════════════════════╝$(NC)"

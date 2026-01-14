@@ -18,10 +18,6 @@ build/
 *.crt
 *.csr
 
-# Docker
-*.tar.gz
-password-vault-docker.tar.gz
-
 # Logs
 *.log
 valgrind-report.txt
