@@ -1,3 +1,4 @@
+#define _GNU_SOURCE
 #include "../include/config.h"
 #include "../include/database.h"
 #include "../include/crypto.h"
@@ -5,6 +6,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <strings.h>
 #include <unistd.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
@@ -26,11 +28,15 @@ pthread_mutex_t db_mutex = PTHREAD_MUTEX_INITIALIZER;
 
 void* handle_client(void* arg);
 void send_response(int socket, SSL *ssl, int status, const char *content_type, const char *body);
+void send_response_with_cookies(int socket, SSL *ssl, int status, const char *content_type, 
+                                const char *body, const char *session_token, const char *csrf_token);
+void clear_session_cookies(int socket, SSL *ssl, int status, const char *body);
 void send_file(int socket, SSL *ssl, const char *filepath);
 void handle_api_request(int socket, SSL *ssl, const char *method, const char *path, 
-                       const char *body, const char *ip, const char *session_token, const char *csrf_token);
+                       const char *body, const char *ip, char *session_token, char *csrf_token);
 char* parse_json_field(const char *json, const char *key);
 char* read_file(const char *filepath);
+char* extract_cookie_value(const char *cookie_header, const char *cookie_name);
 SSL_CTX* init_ssl_context(void);
 
 static ssize_t write_data(int socket, SSL *ssl, const void *buf, size_t len) {
@@ -38,6 +44,91 @@ static ssize_t write_data(int socket, SSL *ssl, const void *buf, size_t len) {
         return SSL_write(ssl, buf, len);
     }
     return write(socket, buf, len);
+}
+
+char* extract_cookie_value(const char *cookie_header, const char *cookie_name) {
+    if (!cookie_header || !cookie_name) return NULL;
+    
+    char search[128];
+    snprintf(search, sizeof(search), "%s=", cookie_name);
+    
+    const char *start = strstr(cookie_header, search);
+    if (!start) return NULL;
+    
+    start += strlen(search);
+    const char *end = strchr(start, ';');
+    
+    size_t len = end ? (size_t)(end - start) : strlen(start);
+    if (len > 256) return NULL;
+    
+    char *value = malloc(len + 1);
+    if (!value) return NULL;
+    
+    strncpy(value, start, len);
+    value[len] = '\0';
+    
+    return value;
+}
+
+void send_response_with_cookies(int socket, SSL *ssl, int status, const char *content_type, 
+                                const char *body, const char *session_token, const char *csrf_token) {
+    char header[2048];
+    const char *status_text = "OK";
+    
+    if (status == 400) status_text = "Bad Request";
+    else if (status == 401) status_text = "Unauthorized";
+    else if (status == 403) status_text = "Forbidden";
+    else if (status == 404) status_text = "Not Found";
+    else if (status == 409) status_text = "Conflict";
+    else if (status == 423) status_text = "Locked";
+    else if (status == 500) status_text = "Internal Server Error";
+    
+    char cookie_headers[512] = "";
+    if (session_token && csrf_token) {
+        snprintf(cookie_headers, sizeof(cookie_headers),
+                "Set-Cookie: session=%s; HttpOnly; Secure; SameSite=Strict; Max-Age=180; Path=/\r\n"
+                "Set-Cookie: csrf_token=%s; Secure; SameSite=Strict; Max-Age=180; Path=/\r\n",
+                session_token, csrf_token);
+    }
+    
+    snprintf(header, sizeof(header),
+             "HTTP/1.1 %d %s\r\n"
+             "Content-Type: %s; charset=utf-8\r\n"
+             "Content-Length: %zu\r\n"
+             "%s"
+             "Access-Control-Allow-Origin: https://localhost:8443\r\n"
+             "Access-Control-Allow-Credentials: true\r\n"
+             "Access-Control-Allow-Methods: GET, POST, PUT, DELETE, OPTIONS\r\n"
+             "Access-Control-Allow-Headers: Content-Type, X-CSRF-Token\r\n"
+             "X-Content-Type-Options: nosniff\r\n"
+             "X-Frame-Options: DENY\r\n"
+             "X-XSS-Protection: 1; mode=block\r\n"
+             "Strict-Transport-Security: max-age=31536000; includeSubDomains\r\n"
+             "\r\n",
+             status, status_text, content_type, strlen(body), cookie_headers);
+    
+    write_data(socket, ssl, header, strlen(header));
+    write_data(socket, ssl, body, strlen(body));
+}
+
+void clear_session_cookies(int socket, SSL *ssl, int status, const char *body) {
+    char header[2048];
+    
+    snprintf(header, sizeof(header),
+             "HTTP/1.1 %d OK\r\n"
+             "Content-Type: application/json; charset=utf-8\r\n"
+             "Content-Length: %zu\r\n"
+             "Set-Cookie: session=; HttpOnly; Secure; SameSite=Strict; Max-Age=0; Path=/\r\n"
+             "Set-Cookie: csrf_token=; Secure; SameSite=Strict; Max-Age=0; Path=/\r\n"
+             "Access-Control-Allow-Origin: https://localhost:8443\r\n"
+             "Access-Control-Allow-Credentials: true\r\n"
+             "X-Content-Type-Options: nosniff\r\n"
+             "X-Frame-Options: DENY\r\n"
+             "\r\n",
+             status, strlen(body));
+    
+    write_data(socket, ssl, header, strlen(header));
+    write_data(socket, ssl, body, strlen(body));
 }
 
 SSL_CTX* init_ssl_context(void) {
@@ -95,9 +186,10 @@ void send_response(int socket, SSL *ssl, int status, const char *content_type, c
              "HTTP/1.1 %d %s\r\n"
              "Content-Type: %s; charset=utf-8\r\n"
              "Content-Length: %zu\r\n"
-             "Access-Control-Allow-Origin: *\r\n"
+             "Access-Control-Allow-Origin: https://localhost:8443\r\n"
+             "Access-Control-Allow-Credentials: true\r\n"
              "Access-Control-Allow-Methods: GET, POST, PUT, DELETE, OPTIONS\r\n"
-             "Access-Control-Allow-Headers: Content-Type, Authorization, X-CSRF-Token\r\n"
+             "Access-Control-Allow-Headers: Content-Type, X-CSRF-Token\r\n"
              "X-Content-Type-Options: nosniff\r\n"
              "X-Frame-Options: DENY\r\n"
              "X-XSS-Protection: 1; mode=block\r\n"
@@ -162,6 +254,8 @@ void send_file(int socket, SSL *ssl, const char *filepath) {
 void* handle_client(void* arg) {
     ClientInfo *client = (ClientInfo*)arg;
     char buffer[BUFFER_SIZE] = {0};
+    char *session_token = NULL;
+    char *csrf_token = NULL;
     
     ssize_t bytes_read;
     if (client->ssl) {
@@ -187,16 +281,34 @@ void* handle_client(void* arg) {
     if (body) body += 4;
     else body = "";
     
-    char session_token[128] = {0};
-    char *auth_header = strstr(buffer, "Authorization: Bearer ");
-    if (auth_header) {
-        sscanf(auth_header + 22, "%127s", session_token);
+    char *cookie_header = NULL;
+    char *header_line = buffer;
+    char *next_line = strstr(header_line, "\r\n");
+    
+    while (next_line) {
+        *next_line = '\0';
+        if (strncasecmp(header_line, "Cookie:", 7) == 0) {
+            cookie_header = header_line + 7;
+            while (*cookie_header == ' ') cookie_header++;
+            session_token = extract_cookie_value(cookie_header, "session");
+            break;
+        }
+        header_line = next_line + 2;
+        next_line = strstr(header_line, "\r\n");
     }
     
-    char csrf_token[128] = {0};
-    char *csrf_header = strstr(buffer, "X-CSRF-Token: ");
-    if (csrf_header) {
-        sscanf(csrf_header + 14, "%127s", csrf_token);
+    header_line = buffer;
+    next_line = strstr(header_line, "\r\n");
+    while (next_line) {
+        *next_line = '\0';
+        if (strncasecmp(header_line, "X-CSRF-Token:", 13) == 0) {
+            char *token_start = header_line + 13;
+            while (*token_start == ' ') token_start++;
+            csrf_token = strdup(token_start);
+            break;
+        }
+        header_line = next_line + 2;
+        next_line = strstr(header_line, "\r\n");
     }
     
     if (strncmp(path, "/api/", 5) == 0) {
@@ -215,6 +327,12 @@ void* handle_client(void* arg) {
     }
     
 cleanup:
+    if (session_token) {
+        free(session_token);
+    }
+    if (csrf_token) {
+        free(csrf_token);
+    }
     if (client->ssl) {
         SSL_shutdown(client->ssl);
         SSL_free(client->ssl);
@@ -225,10 +343,9 @@ cleanup:
 }
 
 void handle_api_request(int socket, SSL *ssl, const char *method, const char *path, 
-                       const char *body, const char *ip, const char *session_token, const char *csrf_token) {
+                       const char *body, const char *ip, char *session_token, char *csrf_token) {
     char response[8192] = {0};
     
-    // ==================== ROUTE STATUS ====================
     if (strcmp(path, "/api/status") == 0 && strcmp(method, "GET") == 0) {
         pthread_mutex_lock(&db_mutex);
         UserAccount user;
@@ -240,7 +357,6 @@ void handle_api_request(int socket, SSL *ssl, const char *method, const char *pa
         return;
     }
     
-    // ==================== ROUTE REGISTER ====================
     if (strcmp(path, "/api/register") == 0 && strcmp(method, "POST") == 0) {
         char *password = parse_json_field(body, "password");
         
@@ -287,7 +403,6 @@ void handle_api_request(int socket, SSL *ssl, const char *method, const char *pa
         
         int success = db_create_user(&db, hash, salt, "");
         
-        // Créer la politique de sécurité par défaut
         if (success) {
             db_create_user_security_policy(&db, 1);
         }
@@ -308,7 +423,6 @@ void handle_api_request(int socket, SSL *ssl, const char *method, const char *pa
         return;
     }
     
-    // ==================== ROUTE QUESTIONS SÉCURITÉ ====================
     if (strcmp(path, "/api/setup-security-questions") == 0 && strcmp(method, "POST") == 0) {
         char *question1 = parse_json_field(body, "question1");
         char *answer1 = parse_json_field(body, "answer1");
@@ -378,7 +492,6 @@ void handle_api_request(int socket, SSL *ssl, const char *method, const char *pa
         return;
     }
     
-    // ==================== ROUTE LOGIN ====================
     if (strcmp(path, "/api/login") == 0 && strcmp(method, "POST") == 0) {
         char *password = parse_json_field(body, "password");
         
@@ -411,10 +524,9 @@ void handle_api_request(int socket, SSL *ssl, const char *method, const char *pa
             Session *new_session = session_create_with_key(1, password);
             
             if (new_session) {
-                snprintf(response, sizeof(response),
-                        "{\"success\":true,\"session_token\":\"%s\",\"csrf_token\":\"%s\",\"expires_in\":%d}",
-                        new_session->token, new_session->csrf_token, SESSION_TIMEOUT);
-                send_response(socket, ssl, 200, "application/json", response);
+                snprintf(response, sizeof(response), "{\"success\":true,\"message\":\"Connexion réussie\"}");
+                send_response_with_cookies(socket, ssl, 200, "application/json", 
+                                          response, new_session->token, new_session->csrf_token);
                 printf("✅ Connexion réussie: %s\n", ip);
             } else {
                 snprintf(response, sizeof(response), "{\"error\":\"Erreur création session\"}");
@@ -431,20 +543,22 @@ void handle_api_request(int socket, SSL *ssl, const char *method, const char *pa
         return;
     }
     
-    // ==================== ROUTE LOGOUT ====================
     if (strcmp(path, "/api/logout") == 0 && strcmp(method, "POST") == 0) {
-        Session *session = session_get(session_token);
-        if (session) {
-            secure_zero_memory(session->master_key, sizeof(session->master_key));
-            session_destroy(session_token);
+        if (session_token) {
+            Session *session = session_get(session_token);
+            if (session) {
+                secure_zero_memory(session->master_key, sizeof(session->master_key));
+                session_destroy(session_token);
+            }
         }
         
-        snprintf(response, sizeof(response), "{\"success\":true,\"message\":\"Déconnecté\"}");
-        send_response(socket, ssl, 200, "application/json", response);
+        snprintf(response, sizeof(response), "{\"success\":true,\"message\":\"Déconnexion réussie\"}");
+        clear_session_cookies(socket, ssl, 200, response);
+        
+        printf("✅ Déconnexion\n");
         return;
     }
     
-    // ==================== ROUTE LISTE MOTS DE PASSE ====================
     if (strcmp(path, "/api/passwords") == 0 && strcmp(method, "GET") == 0) {
         Session *session = session_get(session_token);
         if (!session) {
@@ -474,18 +588,11 @@ void handle_api_request(int socket, SSL *ssl, const char *method, const char *pa
         return;
     }
     
-    // ==================== ROUTE DÉCHIFFREMENT ====================
     if (strncmp(path, "/api/passwords/", 15) == 0 && strstr(path, "/decrypt") != NULL && strcmp(method, "GET") == 0) {
         Session *session = session_get(session_token);
         if (!session) {
             snprintf(response, sizeof(response), "{\"error\":\"Session invalide\"}");
             send_response(socket, ssl, 401, "application/json", response);
-            return;
-        }
-        
-        if (!session_validate_csrf(session->token, csrf_token)) {
-            snprintf(response, sizeof(response), "{\"error\":\"CSRF token invalide\"}");
-            send_response(socket, ssl, 403, "application/json", response);
             return;
         }
         
@@ -511,7 +618,6 @@ void handle_api_request(int socket, SSL *ssl, const char *method, const char *pa
         return;
     }
     
-    // ==================== ROUTE AJOUT MOT DE PASSE ====================
     if (strcmp(path, "/api/passwords") == 0 && strcmp(method, "POST") == 0) {
         Session *session = session_get(session_token);
         if (!session) {
@@ -520,7 +626,7 @@ void handle_api_request(int socket, SSL *ssl, const char *method, const char *pa
             return;
         }
         
-        if (!session_validate_csrf(session->token, csrf_token)) {
+        if (!csrf_token || !session_validate_csrf(session->token, csrf_token)) {
             snprintf(response, sizeof(response), "{\"error\":\"CSRF token invalide\"}");
             send_response(socket, ssl, 403, "application/json", response);
             return;
@@ -564,7 +670,6 @@ void handle_api_request(int socket, SSL *ssl, const char *method, const char *pa
         return;
     }
     
-    // ==================== ROUTE MODIFICATION MOT DE PASSE ====================
     if (strncmp(path, "/api/passwords/", 15) == 0 && strstr(path, "/update") != NULL && strcmp(method, "PUT") == 0) {
         Session *session = session_get(session_token);
         if (!session) {
@@ -573,7 +678,7 @@ void handle_api_request(int socket, SSL *ssl, const char *method, const char *pa
             return;
         }
         
-        if (!session_validate_csrf(session->token, csrf_token)) {
+        if (!csrf_token || !session_validate_csrf(session->token, csrf_token)) {
             snprintf(response, sizeof(response), "{\"error\":\"CSRF token invalide\"}");
             send_response(socket, ssl, 403, "application/json", response);
             return;
@@ -588,7 +693,6 @@ void handle_api_request(int socket, SSL *ssl, const char *method, const char *pa
             return;
         }
         
-        // Chiffrer le nouveau mot de passe
         char encrypted[1024];
         size_t encrypted_len = sizeof(encrypted);
         
@@ -621,7 +725,6 @@ void handle_api_request(int socket, SSL *ssl, const char *method, const char *pa
         return;
     }
     
-    // ==================== ROUTE HISTORIQUE MOT DE PASSE ====================
     if (strncmp(path, "/api/passwords/", 15) == 0 && strstr(path, "/history") != NULL && strcmp(method, "GET") == 0) {
         Session *session = session_get(session_token);
         if (!session) {
@@ -654,7 +757,6 @@ void handle_api_request(int socket, SSL *ssl, const char *method, const char *pa
         return;
     }
     
-    // ==================== ROUTE SUPPRESSION ====================
     if (strncmp(path, "/api/passwords/", 15) == 0 && strcmp(method, "DELETE") == 0) {
         Session *session = session_get(session_token);
         if (!session) {
@@ -663,7 +765,7 @@ void handle_api_request(int socket, SSL *ssl, const char *method, const char *pa
             return;
         }
         
-        if (!session_validate_csrf(session->token, csrf_token)) {
+        if (!csrf_token || !session_validate_csrf(session->token, csrf_token)) {
             snprintf(response, sizeof(response), "{\"error\":\"CSRF token invalide\"}");
             send_response(socket, ssl, 403, "application/json", response);
             return;
@@ -685,7 +787,6 @@ void handle_api_request(int socket, SSL *ssl, const char *method, const char *pa
         return;
     }
     
-    // ==================== ROUTE GÉNÉRATION ====================
     if (strcmp(path, "/api/generate-passphrase") == 0 && strcmp(method, "GET") == 0) {
         char passphrase[256];
         generate_secure_passphrase(passphrase, sizeof(passphrase) - 1);
@@ -695,7 +796,6 @@ void handle_api_request(int socket, SSL *ssl, const char *method, const char *pa
         return;
     }
 
-    // ==================== ROUTE QUESTIONS SÉCURITÉ (GET) ====================
     if (strcmp(path, "/api/security-questions") == 0 && strcmp(method, "GET") == 0) {
         pthread_mutex_lock(&db_mutex);
         SecurityQuestions questions;
@@ -715,7 +815,6 @@ void handle_api_request(int socket, SSL *ssl, const char *method, const char *pa
         return;
     }
 
-    // ==================== ROUTE RÉCUPÉRATION ====================
     if (strcmp(path, "/api/recover-account") == 0 && strcmp(method, "POST") == 0) {
         char *answer1 = parse_json_field(body, "answer1");
         char *answer2 = parse_json_field(body, "answer2");
@@ -772,7 +871,6 @@ void handle_api_request(int socket, SSL *ssl, const char *method, const char *pa
         return;
     }
 
-    // ==================== ROUTE LOGS DE SÉCURITÉ ====================
     if (strcmp(path, "/api/security-logs") == 0 && strcmp(method, "GET") == 0) {
         Session *session = session_get(session_token);
         if (!session) {
@@ -783,7 +881,6 @@ void handle_api_request(int socket, SSL *ssl, const char *method, const char *pa
 
         pthread_mutex_lock(&db_mutex);
         
-        // Récupérer les tentatives échouées récentes
         const char *failed_sql = 
             "SELECT ip_address, timestamp, action FROM login_attempts "
             "WHERE success = 0 AND timestamp > datetime('now', '-24 hours') "
@@ -816,7 +913,6 @@ void handle_api_request(int socket, SSL *ssl, const char *method, const char *pa
             sqlite3_finalize(stmt);
         }
         
-        // Récupérer les statistiques des dernières 24h
         const char *stats_sql = 
             "SELECT COUNT(*) as total_failed, "
             "COUNT(DISTINCT ip_address) as unique_ips, "
@@ -910,7 +1006,6 @@ void handle_api_request(int socket, SSL *ssl, const char *method, const char *pa
         return;
     }
 
-    // ==================== ROUTE RÉINITIALISATION MOT DE PASSE ====================
     if (strcmp(path, "/api/reset-password") == 0 && strcmp(method, "POST") == 0) {
         char *recovery_token = parse_json_field(body, "recovery_token");
         char *new_password = parse_json_field(body, "password");

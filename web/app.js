@@ -1,4 +1,3 @@
-// ==================== CONFIGURATION ET CONSTANTES ====================
 const API_URL = window.location.origin + '/api';
 let currentSession = null;
 let autoLockTimer = null;
@@ -6,20 +5,25 @@ let clipboardTimeout = null;
 let lastActivity = Date.now();
 let isLocked = false;
 
-const LOCK_TIMEOUT = 180000; // 3 minutes
-const CLIPBOARD_TIMEOUT = 10000; // 30 secondes
+const LOCK_TIMEOUT = 180000;
+const CLIPBOARD_TIMEOUT = 10000;
 
-// ==================== INITIALISATION ====================
+function getCsrfToken() {
+    const match = document.cookie.match(/csrf_token=([^;]+)/);
+    return match ? match[1] : null;
+}
 
 window.addEventListener('DOMContentLoaded', async () => {
     try {
-        const response = await fetch(`${API_URL}/status`);
+        const response = await fetch(`${API_URL}/status`, {
+            credentials: 'include'
+        });
         const data = await response.json();
         
         if (data.has_account) {
-            const token = localStorage.getItem('session_token');
-            if (token) {
-                currentSession = { token };
+            const csrfToken = getCsrfToken();
+            if (csrfToken) {
+                currentSession = { csrf_token: csrfToken };
                 showDashboard();
             } else {
                 showScreen('login-screen');
@@ -35,8 +39,6 @@ window.addEventListener('DOMContentLoaded', async () => {
     initializeEventListeners();
     resetActivityTimer();
 });
-
-// ==================== GESTION DES ÉCRANS ====================
 
 function showScreen(screenId) {
     console.log('Affichage écran:', screenId);
@@ -64,8 +66,6 @@ function showDashboard() {
     }
 }
 
-// ==================== INSCRIPTION ====================
-
 function initializeRegisterForm() {
     const registerForm = document.getElementById('register-form');
     if (registerForm) {
@@ -89,6 +89,7 @@ function initializeRegisterForm() {
             try {
                 const response = await fetch(`${API_URL}/register`, {
                     method: 'POST',
+                    credentials: 'include',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ password })
                 });
@@ -108,8 +109,6 @@ function initializeRegisterForm() {
         });
     }
 }
-
-// ==================== QUESTIONS DE SÉCURITÉ ====================
 
 function updateQuestionPlaceholder(questionNumber) {
     const select = document.getElementById(`question${questionNumber}`);
@@ -168,13 +167,11 @@ function initializeSecurityQuestionsForm() {
             const question3 = document.getElementById('question3').value;
             const answer3 = document.getElementById('answer3').value;
             
-            // Validation
             if (!question1 || !answer1 || !question2 || !answer2 || !question3 || !answer3) {
                 notify('Veuillez remplir toutes les questions et réponses', 'error');
                 return;
             }
             
-            // Vérifier que les questions sont différentes
             const questions = [question1, question2, question3];
             const uniqueQuestions = new Set(questions);
             if (uniqueQuestions.size !== 3) {
@@ -185,6 +182,7 @@ function initializeSecurityQuestionsForm() {
             try {
                 const response = await fetch(`${API_URL}/setup-security-questions`, {
                     method: 'POST',
+                    credentials: 'include',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
                         question1,
@@ -213,8 +211,6 @@ function initializeSecurityQuestionsForm() {
     }
 }
 
-// ==================== CODE DE RÉCUPÉRATION ====================
-
 function copyRecoveryCode() {
     const recoveryCode = document.getElementById('recovery-code-value').textContent;
     navigator.clipboard.writeText(recoveryCode).then(() => {
@@ -229,7 +225,6 @@ function finishSetup() {
     showScreen('login-screen');
     notify('✅ Configuration terminée ! Vous pouvez maintenant vous connecter', 'success');
     
-    // Nettoyer les formulaires
     document.getElementById('register-password').value = '';
     document.getElementById('register-confirm').value = '';
     document.getElementById('question1').value = '';
@@ -239,8 +234,6 @@ function finishSetup() {
     document.getElementById('question3').value = '';
     document.getElementById('answer3').value = '';
 }
-
-// ==================== CONNEXION ====================
 
 function initializeLoginForm() {
     const loginForm = document.getElementById('login-form');
@@ -253,6 +246,7 @@ function initializeLoginForm() {
             try {
                 const response = await fetch(`${API_URL}/login`, {
                     method: 'POST',
+                    credentials: 'include',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ password })
                 });
@@ -261,11 +255,8 @@ function initializeLoginForm() {
                 
                 if (response.ok) {
                     currentSession = {
-                        token: data.session_token,
-                        csrf_token: data.csrf_token
+                        csrf_token: getCsrfToken()
                     };
-                    localStorage.setItem('session_token', data.session_token);
-                    localStorage.setItem('csrf_token', data.csrf_token);
                     
                     notify('✅ Connecté', 'success');
                     showDashboard();
@@ -279,8 +270,6 @@ function initializeLoginForm() {
     }
 }
 
-// ==================== FONCTIONNALITÉ MOT DE PASSE OUBLIÉ ====================
-
 function showForgotPassword() {
     showScreen('forgot-password-screen');
     loadSecurityQuestionsForRecovery();
@@ -292,7 +281,9 @@ function showLoginScreen() {
 
 async function loadSecurityQuestionsForRecovery() {
     try {
-        const response = await fetch(`${API_URL}/security-questions`);
+        const response = await fetch(`${API_URL}/security-questions`, {
+            credentials: 'include'
+        });
         const data = await response.json();
         
         const container = document.getElementById('security-questions-container');
@@ -335,7 +326,6 @@ function initializeForgotPasswordForm() {
             const answer3 = document.getElementById('recovery-answer3')?.value || '';
             const recoveryCode = document.getElementById('recovery-code-input').value || '';
 
-            // Vérifier qu'au moins une méthode est utilisée
             const hasAnswers = answer1.trim() && answer2.trim() && answer3.trim();
             const hasCode = recoveryCode.trim();
             
@@ -345,10 +335,10 @@ function initializeForgotPasswordForm() {
             }
 
             if (hasAnswers && !hasCode) {
-                // Vérification par questions seulement
                 try {
                     const response = await fetch(`${API_URL}/recover-account`, {
                         method: 'POST',
+                        credentials: 'include',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({
                             answer1: answer1,
@@ -370,10 +360,10 @@ function initializeForgotPasswordForm() {
                     console.error(err);
                 }
             } else if (hasCode && !hasAnswers) {
-                // Vérification par code seulement
                 try {
                     const response = await fetch(`${API_URL}/recover-account`, {
                         method: 'POST',
+                        credentials: 'include',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({
                             recovery_code: recoveryCode
@@ -422,6 +412,7 @@ function initializeResetPasswordForm() {
             try {
                 const response = await fetch(`${API_URL}/reset-password`, {
                     method: 'POST',
+                    credentials: 'include',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ password })
                 });
@@ -431,7 +422,6 @@ function initializeResetPasswordForm() {
                 if (response.ok) {
                     notify('✅ Mot de passe réinitialisé avec succès !', 'success');
                     
-                    // Nettoyer tous les formulaires
                     setTimeout(() => {
                         document.getElementById('reset-password').value = '';
                         document.getElementById('reset-confirm').value = '';
@@ -454,8 +444,6 @@ function initializeResetPasswordForm() {
     }
 }
 
-// ==================== DÉVERROUILLAGE ====================
-
 function initializeUnlockForm() {
     const unlockForm = document.getElementById('unlock-form');
     if (unlockForm) {
@@ -472,6 +460,7 @@ function initializeUnlockForm() {
             try {
                 const response = await fetch(`${API_URL}/login`, {
                     method: 'POST',
+                    credentials: 'include',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ password })
                 });
@@ -480,12 +469,8 @@ function initializeUnlockForm() {
                 
                 if (response.ok) {
                     currentSession = {
-                        token: data.session_token,
-                        csrf_token: data.csrf_token,
-                        expires_in: data.expires_in
+                        csrf_token: getCsrfToken()
                     };
-                    localStorage.setItem('session_token', data.session_token);
-                    localStorage.setItem('csrf_token', data.csrf_token);
                     
                     isLocked = false;
                     resetActivityTimer();
@@ -506,18 +491,16 @@ function initializeUnlockForm() {
     }
 }
 
-// ==================== CHARGEMENT DES MOTS DE PASSE ====================
-
 async function loadPasswords() {
-    const token = localStorage.getItem('session_token');
-    if (!token) {
+    const csrfToken = getCsrfToken();
+    if (!csrfToken) {
         showScreen('login-screen');
         return;
     }
     
     try {
         const response = await fetch(`${API_URL}/passwords`, {
-            headers: { 'Authorization': `Bearer ${token}` }
+            credentials: 'include'
         });
         
         if (response.status === 401) {
@@ -569,23 +552,17 @@ function filterPasswords() {
     });
 }
 
-// ==================== COPIER MOT DE PASSE ====================
-
 async function copyPassword(id) {
-    const token = localStorage.getItem('session_token');
-    const csrf = localStorage.getItem('csrf_token');
+    const csrfToken = getCsrfToken();
     
-    if (!token || !csrf) {
+    if (!csrfToken) {
         notify('Session invalide', 'error');
         return;
     }
     
     try {
         const response = await fetch(`${API_URL}/passwords/${id}/decrypt`, {
-            headers: { 
-                'Authorization': `Bearer ${token}`,
-                'X-CSRF-Token': csrf
-            }
+            credentials: 'include'
         });
         
         if (response.status === 401) {
@@ -614,8 +591,6 @@ async function copyPassword(id) {
     }
 }
 
-// ==================== MODIFICATION MOT DE PASSE ====================
-
 function showEditPassword(id, website, username) {
     document.getElementById('edit-password-id').value = id;
     document.getElementById('edit-website').value = website;
@@ -628,8 +603,7 @@ async function updatePassword() {
     const id = document.getElementById('edit-password-id').value;
     const newPassword = document.getElementById('edit-new-password').value;
     
-    const token = localStorage.getItem('session_token');
-    const csrf = localStorage.getItem('csrf_token');
+    const csrfToken = getCsrfToken();
     
     if (!newPassword) {
         notify('❌ Nouveau mot de passe requis', 'error');
@@ -639,9 +613,9 @@ async function updatePassword() {
     try {
         const response = await fetch(`/api/passwords/${id}/update`, {
             method: 'PUT',
+            credentials: 'include',
             headers: { 
-                'Authorization': `Bearer ${token}`,
-                'X-CSRF-Token': csrf,
+                'X-CSRF-Token': csrfToken,
                 'Content-Type': 'application/json'
             },
             body: JSON.stringify({ new_password: newPassword })
@@ -674,14 +648,10 @@ function autoGeneratePasswordForEdit() {
     notify('🎲 Mot de passe généré', 'success');
 }
 
-// ==================== HISTORIQUE MOT DE PASSE ====================
-
 async function showPasswordHistory(id) {
-    const token = localStorage.getItem('session_token');
-    
     try {
         const response = await fetch(`/api/passwords/${id}/history`, {
-            headers: { 'Authorization': `Bearer ${token}` }
+            credentials: 'include'
         });
         
         const data = await response.json();
@@ -719,20 +689,17 @@ function closeHistoryModal() {
     document.getElementById('history-modal').classList.add('hidden');
 }
 
-// ==================== SUPPRIMER MOT DE PASSE ====================
-
 async function deletePassword(id) {
     if (!confirm('Supprimer ce mot de passe ?')) return;
     
-    const token = localStorage.getItem('session_token');
-    const csrf = localStorage.getItem('csrf_token');
+    const csrfToken = getCsrfToken();
     
     try {
         const response = await fetch(`${API_URL}/passwords/${id}`, {
             method: 'DELETE',
+            credentials: 'include',
             headers: { 
-                'Authorization': `Bearer ${token}`,
-                'X-CSRF-Token': csrf
+                'X-CSRF-Token': csrfToken
             }
         });
         
@@ -746,8 +713,6 @@ async function deletePassword(id) {
         notify('Erreur réseau', 'error');
     }
 }
-
-// ==================== AJOUTER MOT DE PASSE ====================
 
 function showAddPassword() {
     document.getElementById('add-modal').classList.remove('hidden');
@@ -772,15 +737,14 @@ function initializeAddPasswordForm() {
             const password = document.getElementById('add-password').value;
             const notes = document.getElementById('add-notes').value;
             
-            const token = localStorage.getItem('session_token');
-            const csrf = localStorage.getItem('csrf_token');
+            const csrfToken = getCsrfToken();
             
             try {
                 const response = await fetch(`${API_URL}/passwords`, {
                     method: 'POST',
+                    credentials: 'include',
                     headers: { 
-                        'Authorization': `Bearer ${token}`,
-                        'X-CSRF-Token': csrf,
+                        'X-CSRF-Token': csrfToken,
                         'Content-Type': 'application/json'
                     },
                     body: JSON.stringify({ website, username, password, notes })
@@ -800,8 +764,6 @@ function initializeAddPasswordForm() {
         });
     }
 }
-
-// ==================== GÉNÉRATEUR DE MOT DE PASSE ====================
 
 function generatePasswordPopup() {
     document.getElementById('generate-modal').classList.remove('hidden');
@@ -861,13 +823,10 @@ function autoGeneratePassword() {
     notify('🎲 Mot de passe généré', 'success');
 }
 
-// ==================== GÉNÉRATEUR DE PHRASE DE PASSE ====================
-
 async function generatePassphrase() {
     try {
-        const token = localStorage.getItem('session_token');
         const response = await fetch(`${API_URL}/generate-passphrase`, {
-            headers: { 'Authorization': `Bearer ${token}` }
+            credentials: 'include'
         });
         
         if (response.ok) {
@@ -909,8 +868,6 @@ function generateFallbackPassphrase() {
     return passphrase;
 }
 
-// ==================== DÉCONNEXION ====================
-
 async function logout() {
     console.log('🚪 Déconnexion');
     
@@ -920,24 +877,18 @@ async function logout() {
         navigator.clipboard.writeText('').catch(() => {});
     }
     
-    const token = localStorage.getItem('session_token');
-    if (token) {
-        try {
-            await fetch(`${API_URL}/logout`, {
-                method: 'POST',
-                headers: { 
-                    'Authorization': `Bearer ${token}`,
-                    'Content-Type': 'application/json'
-                }
-            });
-        } catch (err) {}
-    }
+    try {
+        await fetch(`${API_URL}/logout`, {
+            method: 'POST',
+            credentials: 'include',
+            headers: { 
+                'Content-Type': 'application/json'
+            }
+        });
+    } catch (err) {}
     
     currentSession = null;
     isLocked = false;
-    
-    localStorage.removeItem('session_token');
-    localStorage.removeItem('csrf_token');
     
     document.querySelectorAll('input, textarea').forEach(input => input.value = '');
     
@@ -945,8 +896,6 @@ async function logout() {
     
     notify('🔒 Déconnecté', 'success');
 }
-
-// ==================== UTILITAIRES ====================
 
 function togglePassword(inputId) {
     const input = document.getElementById(inputId);
@@ -1006,8 +955,6 @@ function updateStrengthBar(inputId, barId, textId) {
     }
 }
 
-// ==================== NOTIFICATIONS ====================
-
 function notify(message, type = 'success') {
     const notification = document.getElementById('notification');
     notification.textContent = message;
@@ -1019,15 +966,13 @@ function notify(message, type = 'success') {
     }, 3000);
 }
 
-// ==================== CHARGEMENT DES LOGS DE SÉCURITÉ ====================
-
 async function loadSecurityLogs() {
-    const token = localStorage.getItem('session_token');
-    if (!token) return;
+    const csrfToken = getCsrfToken();
+    if (!csrfToken) return;
 
     try {
         const response = await fetch(`${API_URL}/security-logs`, {
-            headers: { 'Authorization': `Bearer ${token}` }
+            credentials: 'include'
         });
 
         if (response.ok) {
@@ -1040,12 +985,10 @@ async function loadSecurityLogs() {
 }
 
 function updateSecurityDashboard(data) {
-    // Mettre à jour les statistiques
     document.getElementById('failed-attempts').textContent = data.stats.total_failed;
     document.getElementById('suspicious-ips').textContent = data.stats.unique_ips;
     document.getElementById('last-hour').textContent = data.stats.last_hour;
 
-    // Mettre à jour la liste des logs
     const container = document.getElementById('security-logs-list');
     
     if (!data.security_logs || data.security_logs.length === 0) {
@@ -1075,8 +1018,6 @@ function formatTimestamp(timestamp) {
     });
 }
 
-// ==================== GESTION DE L'INACTIVITÉ ====================
-
 function resetActivityTimer() {
     lastActivity = Date.now();
     if (autoLockTimer) clearTimeout(autoLockTimer);
@@ -1091,27 +1032,21 @@ function resetActivityTimer() {
     }, LOCK_TIMEOUT);
 }
 
-// ==================== ÉCOUTEURS D'ÉVÉNEMENTS ====================
-
 function initializeEventListeners() {
-    // Formulaires existants
     initializeRegisterForm();
     initializeLoginForm();
     initializeUnlockForm();
     initializeAddPasswordForm();
     initializeSecurityQuestionsForm();
     
-    // Formulaires de récupération
     initializeForgotPasswordForm();
     initializeResetPasswordForm();
     
-    // Indicateurs de force
     updateStrengthBar('register-password', 'strength-bar', 'strength-text');
     updateStrengthBar('add-password', 'add-strength-bar', null);
     updateStrengthBar('reset-password', 'reset-strength-bar', 'reset-strength-text');
     updateStrengthBar('edit-new-password', 'edit-strength-bar', null);
     
-    // Clavier
     document.addEventListener('keydown', (e) => {
         if (e.key === 'Escape') {
             closeModal();
@@ -1121,12 +1056,10 @@ function initializeEventListeners() {
         }
     });
     
-    // Activité utilisateur
     ['mousemove', 'keydown', 'click', 'scroll', 'touchstart'].forEach(event => {
         document.addEventListener(event, resetActivityTimer, { passive: true });
     });
     
-    // Slider longueur
     const lengthSlider = document.getElementById('password-length');
     if (lengthSlider) {
         lengthSlider.addEventListener('input', function() {
@@ -1134,7 +1067,6 @@ function initializeEventListeners() {
         });
     }
     
-    // Protection autofill
     const forms = document.querySelectorAll('form');
     forms.forEach(form => {
         form.setAttribute('autocomplete', 'off');
@@ -1142,5 +1074,4 @@ function initializeEventListeners() {
     });
 }
 
-// Recharger les logs périodiquement
-setInterval(loadSecurityLogs, 30000); // Toutes les 30 secondes
+setInterval(loadSecurityLogs, 30000);
