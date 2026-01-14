@@ -1,4 +1,4 @@
-# Project Collaboration Documentation v2
+# Project Collaboration Documentation
 
 ## Team Organization
 
@@ -85,7 +85,7 @@
 - **Alida**: Recovery system implementation, security logs, concurrency handling
 - **Maimouna**: UI refinement, documentation updates, passphrase generator UI
 
-### Sprint 4 (v2 Enhancements)
+### Sprint 4 (Enhancements)
 **Goal**: Performance optimization and advanced security
 
 **Completed Tasks**:
@@ -102,7 +102,7 @@
 - **Deborah**: Database optimization, index strategy, Docker removal, Makefile updates
 - **Louise**: Enhanced security policies, lockout mechanisms, security audit improvements
 - **Alida**: API documentation, recovery system enhancements, concurrency improvements
-- **Maimouna**: Documentation v2, UI improvements, user guide updates
+- **Maimouna**: Documentation, UI improvements, user guide updates
 
 ---
 
@@ -210,7 +210,7 @@
 | Rate Limiting | Alida | Deborah |
 | 2FA/TOTP | Louise | Maimouna |
 
-### Advanced Features (v2)
+### Advanced Features
 
 | Feature | Primary Owner | Supporting Members |
 |---------|--------------|-------------------|

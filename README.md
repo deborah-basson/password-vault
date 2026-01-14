@@ -1,4 +1,4 @@
-# Password Vault v2 - Secure Password Manager
+# Password Vault - Secure Password Manager
 
 [![CI Pipeline](https://github.com/deborah-basson/password-vault/actions/workflows/ci.yml/badge.svg)](https://github.com/deborah-basson/password-vault/actions)
 [![License](https://img.shields.io/badge/license-Educational-blue.svg)](LICENSE)
