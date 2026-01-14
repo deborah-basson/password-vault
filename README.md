@@ -366,23 +366,23 @@ make test
 
 #### Unit Tests (42 tests)
 - Crypto Tests (12): Encryption, decryption, hashing, TOTP
-- Crypto Edge Cases (8): Boundary conditions, malformed input
+- Crypto Edge Cases (4): Boundary conditions, malformed input
 - Database Tests (13): CRUD operations, transactions, constraints
 - Session Tests (9): Session creation, validation, expiration
-- Security Questions (6): Question setup, recovery, lockout
+- Security Questions (5): Question setup, recovery, lockout
 
-#### Integration Tests (7 tests)
+#### Integration Tests (6 tests)
 - End-to-end user registration flow
 - Complete login and password management
 - Import/export functionality
 - Recovery scenarios
 
-#### Security Tests (17 tests)
+#### Security Tests (20 tests)
 - Import/Export (7): Encryption, integrity, corruption handling
-- Concurrency (4): Thread safety, race conditions
-- Memory Safety (3): Memory leaks, buffer overflows
+- Concurrency (2): Thread safety, race conditions
+- Memory Safety (4): Memory leaks, buffer overflows
 - Edge Cases (4): Invalid input, boundary conditions
-- Recovery Scenarios (3): Token validation, expiration, lockout
+- Recovery Scenarios (2): Token validation, expiration, lockout
 
 ### Test Execution
 
@@ -873,68 +873,26 @@ Response (200 OK):
 
 ---
 
-### Backup/Restore Endpoints
+### Security Setup Endpoints
 
-#### POST `/api/export`
-Export encrypted vault backup with integrity verification.
+#### POST `/api/setup-security-questions`
+Configure security questions after registration (alternative to setup during registration).
 
 Headers:
 ```
 Authorization: Bearer YOUR_SESSION_TOKEN
 X-CSRF-Token: YOUR_CSRF_TOKEN
-Content-Type: application/json
 ```
 
 Request:
 ```json
 {
-  "export_password": "StrongExportPassword123!"
-}
-```
-
-Response (200 OK):
-```
-Binary encrypted data with embedded checksum (download as file)
-```
-
-Export Format:
-```json
-{
-  "version": "1.0",
-  "export_date": "2026-01-14 14:30:00",
-  "password_count": 42,
-  "checksum": "sha256_hash_of_data",
-  "passwords": [...]
-}
-```
-
-#### POST `/api/import`
-Import encrypted vault backup with integrity verification.
-
-Headers:
-```
-Authorization: Bearer YOUR_SESSION_TOKEN
-X-CSRF-Token: YOUR_CSRF_TOKEN
-```
-
-Request (multipart/form-data):
-```
-file: vault_backup.enc
-export_password: StrongExportPassword123!
-```
-
-Response (200 OK):
-```json
-{
-  "success": true,
-  "imported_count": 42
-}
-```
-
-Response (400 Bad Request) - If checksum fails:
-```json
-{
-  "error": "Fichier corrompu ou invalide"
+  "question1": "What is your favorite color?",
+  "answer1": "Blue",
+  "question2": "Where were you born?",
+  "answer2": "Paris",
+  "question3": "What is your pet name?",
+  "answer3": "Max"
 }
 ```
 

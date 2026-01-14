@@ -361,7 +361,7 @@
 | Optimization | Implementation | Owner |
 |-------------|---------------|-------|
 | WAL Mode | SQLite journal_mode=WAL | Deborah |
-| Database Indexes | 10 strategic indexes | Deborah |
+| Database Indexes | 12 strategic indexes | Deborah |
 | Prepared Statements | All SQL queries | All |
 | Connection Pooling | Thread-safe access | Alida |
 | Memory Zeroing | libsodium secure functions | Louise |
@@ -387,11 +387,12 @@
 ## Code Statistics
 
 ```
-Total Lines of Code: ~5,500
-- Source files (src/): ~3,200 lines
-- Header files (include/): ~400 lines
+Total Lines of Code: ~7,950
+- Source files (src/): ~3,600 lines
+- Header files (include/): ~360 lines
 - Test files (tests/): ~1,700 lines
-- Web interface (web/): ~1,200 lines
+- Web interface (web/): ~2,090 lines
+- SQL files (sql/): ~200 lines
 
 Files: 35
 - C source: 8 files
