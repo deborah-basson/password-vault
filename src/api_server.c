@@ -1124,18 +1124,19 @@ char* parse_json_field(const char *json, const char *key) {
     char search[128];
     snprintf(search, sizeof(search), "\"%s\":", key);
     
-    char *start = strstr(json, search);
+    const char *start = strstr(json, search);
     if (!start) return NULL;
     
     start += strlen(search);
     while (*start == ' ' || *start == '"') start++;
     
-    char *end = start;
+    const char *end = start;
     while (*end && *end != '"' && *end != ',' && *end != '}') end++;
     
-    int len = end - start;
+    size_t len = (size_t)(end - start);
     char *value = malloc(len + 1);
-    strncpy(value, start, len);
+    if (!value) return NULL;
+    memcpy(value, start, len);
     value[len] = '\0';
     
     return value;

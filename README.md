@@ -233,7 +233,7 @@ cppcheck            # Static analysis
 
 ---
 
-## Installation + Build
+## Installation
 
 ### 1. Clone the repository
 ```bash

@@ -269,7 +269,7 @@ static int base32_decode(const char *encoded, unsigned char *result, size_t *res
     size_t count = 0;
     
     for (size_t i = 0; i < len; i++) {
-        char *p = strchr(base32_chars, encoded[i]);
+        const char *p = strchr(base32_chars, encoded[i]);
         if (!p) continue;
         
         buffer = (buffer << 5) | (p - base32_chars);
